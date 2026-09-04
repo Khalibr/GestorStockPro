@@ -4,6 +4,7 @@ from reportlab.lib.units import mm
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from models.database import obtener_config_comercio
 
 def generar_ticket_pdf(id_operacion: int, items_carrito: list, total: float, usuario: str) -> str:
     """
@@ -56,15 +57,19 @@ def generar_ticket_pdf(id_operacion: int, items_carrito: list, total: float, usu
         leading=9
     )
 
-    # Cabecera del comercio
-    story.append(Paragraph("GESTOR STOCK PRO", estilo_centro_bold))
+    cfg = obtener_config_comercio()
+
+    # Cabecera dinámica del comercio
+    story.append(Paragraph(cfg["nombre"], estilo_centro_bold))
+    if cfg["direccion"]:
+        story.append(Paragraph(cfg["direccion"], estilo_info))
+    if cfg["telefono"]:
+        story.append(Paragraph(f"Tel: {cfg['telefono']}", estilo_info))
+    if cfg["cuit"]:
+        story.append(Paragraph(f"CUIT/RUT: {cfg['cuit']}", estilo_info))
     story.append(Spacer(1, 2 * mm))
     story.append(Paragraph("DOCUMENTO NO FISCAL", estilo_info))
     story.append(Paragraph("TICKET DE VENTA", estilo_info))
-    story.append(Spacer(1, 2 * mm))
-    story.append(Paragraph(f"<b>Op:</b> #{id_operacion} | <b>Fecha:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}", estilo_info))
-    story.append(Paragraph(f"<b>Atendido por:</b> {usuario}", estilo_info))
-    story.append(Spacer(1, 4 * mm))
 
     # Tabla de artículos (ancho útil: ~72mm)
     # Columnas: Cant (10mm) | Producto (38mm) | Subtotal (24mm)
@@ -96,7 +101,7 @@ def generar_ticket_pdf(id_operacion: int, items_carrito: list, total: float, usu
 
     story.append(tabla)
     story.append(Spacer(1, 5 * mm))
-    story.append(Paragraph("¡Gracias por su compra!", estilo_info))
+    story.append(Paragraph(cfg["leyenda"] or "¡Gracias por su compra!", estilo_info))
 
     doc.build(story)
     return os.path.abspath(nombre_archivo)

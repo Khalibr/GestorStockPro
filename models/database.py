@@ -49,6 +49,24 @@ def inicializar_base_de_datos():
         )
     """)
 
+    # Tabla de configuración del comercio
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS config_comercio (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            nombre_fantasia TEXT NOT NULL,
+            direccion TEXT,
+            telefono TEXT,
+            cuit TEXT,
+            leyenda TEXT
+        )
+    """)
+
+    # Valores por defecto si la tabla está vacía
+    cursor.execute("""
+        INSERT OR IGNORE INTO config_comercio (id, nombre_fantasia, direccion, telefono, cuit, leyenda)
+        VALUES (1, 'GESTOR STOCK PRO', 'Av. Central 1234', '+54 11 0000-0000', '20-12345678-9', '¡Gracias por su compra!')
+    """)
+
     # Usuario demo inicial: admin / admin123
     usuario_demo = "admin"
     pass_demo_hash = hashear_password("admin123")
@@ -256,6 +274,60 @@ def procesar_venta(items_carrito: list, usuario: str) -> tuple[bool, str, int]:
         conexion.close()
         print(f"Error crítico en venta: {e}")
         return False, f"Error al procesar la venta: {e}", 0
+
+def obtener_config_comercio() -> dict:
+    conexion = conectar()
+    cursor = conexion.cursor()
+    cursor.execute("SELECT nombre_fantasia, direccion, telefono, cuit, leyenda FROM config_comercio WHERE id = 1")
+    row = cursor.fetchone()
+    conexion.close()
+    if row:
+        return {"nombre": row[0], "direccion": row[1], "telefono": row[2], "cuit": row[3], "leyenda": row[4]}
+    return {"nombre": "GESTOR STOCK PRO", "direccion": "", "telefono": "", "cuit": "", "leyenda": ""}
+
+def guardar_config_comercio(nombre: str, direccion: str, telefono: str, cuit: str, leyenda: str) -> bool:
+    try:
+        conexion = conectar()
+        cursor = conexion.cursor()
+        cursor.execute(
+            """
+            UPDATE config_comercio 
+            SET nombre_fantasia = ?, direccion = ?, telefono = ?, cuit = ?, leyenda = ?
+            WHERE id = 1
+            """,
+            (nombre, direccion, telefono, cuit, leyenda)
+        )
+        conexion.commit()
+        conexion.close()
+        return True
+    except Exception as e:
+        print(f"Error al guardar config: {e}")
+        return False
+
+def cambiar_password_usuario(usuario: str, password_actual: str, password_nueva: str) -> tuple[bool, str]:
+    conexion = conectar()
+    cursor = conexion.cursor()
+    cursor.execute("SELECT password FROM usuarios WHERE username = ?", (usuario,))
+    row = cursor.fetchone()
+    if not row or row[0] != password_actual:
+        conexion.close()
+        return False, "La contraseña actual no coincide."
+
+    cursor.execute("UPDATE usuarios SET password = ? WHERE username = ?", (password_nueva, usuario))
+    conexion.commit()
+    conexion.close()
+    return True, "Contraseña actualizada correctamente."
+
+def crear_nuevo_operador(nuevo_usuario: str, password: str) -> tuple[bool, str]:
+    try:
+        conexion = conectar()
+        cursor = conexion.cursor()
+        cursor.execute("INSERT INTO usuarios (username, password) VALUES (?, ?)", (nuevo_usuario, password))
+        conexion.commit()
+        conexion.close()
+        return True, f"Usuario '{nuevo_usuario}' creado exitosamente."
+    except Exception:
+        return False, f"El usuario '{nuevo_usuario}' ya existe en el sistema."
 
 if __name__ == "__main__":
     inicializar_base_de_datos()

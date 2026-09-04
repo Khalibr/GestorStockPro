@@ -10,6 +10,7 @@ from views.inventario_view import InventarioFrame
 from views.carga_stock_view import CargaStockFrame
 from views.historial_view import HistorialFrame
 from views.ventas_view import VentasFrame
+from views.configuracion_view import ConfiguracionFrame
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
@@ -252,7 +253,10 @@ class MainView(ctk.CTk):
             self.vista_historial.pack(fill="both", expand=True, padx=10, pady=10)
         elif modulo == "Ventas":
             self.vista_ventas = VentasFrame(self.contenido_frame, usuario_activo=self.usuario_activo)
-            self.vista_ventas.pack(fill="both", expand=True, padx=10, pady=10)   
+            self.vista_ventas.pack(fill="both", expand=True, padx=10, pady=10)
+        elif modulo == "Configuración":
+            self.vista_config = ConfiguracionFrame(self.contenido_frame, usuario_activo=self.usuario_activo)
+            self.vista_config.pack(fill="both", expand=True, padx=10, pady=10)   
         else:
             lbl_vista_actual = ctk.CTkLabel(
                 self.contenido_frame,
