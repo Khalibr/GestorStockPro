@@ -29,6 +29,9 @@ class ProductoModal(ctk.CTkToplevel):
         self.grab_set()  # Vuelve la ventana modal (bloquea la anterior)
 
         self.crear_formulario()
+        
+        # Asegura el foco en el primer campo apenas se termina de renderizar la ventana
+        self.after(100, lambda: self.entry_nombre.focus_set())
 
     def crear_formulario(self):
         lbl_titulo = ctk.CTkLabel(
