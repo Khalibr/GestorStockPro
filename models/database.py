@@ -65,6 +65,30 @@ def validar_credenciales(usuario: str, password_plana: str) -> bool:
     
     return resultado is not None
 
+def obtener_productos():
+    """Recupera todos los registros de la tabla productos."""
+    conexion = conectar()
+    cursor = conexion.cursor()
+    cursor.execute("SELECT id, nombre, categoria, stock, precio FROM productos ORDER BY id DESC")
+    productos = cursor.fetchall()
+    conexion.close()
+    return productos
+
+def buscar_productos(termino: str):
+    """Filtra productos por nombre o categoría."""
+    conexion = conectar()
+    cursor = conexion.cursor()
+    query = """
+        SELECT id, nombre, categoria, stock, precio 
+        FROM productos 
+        WHERE nombre LIKE ? OR categoria LIKE ?
+        ORDER BY id DESC
+    """
+    cursor.execute(query, (f"%{termino}%", f"%{termino}%"))
+    productos = cursor.fetchall()
+    conexion.close()
+    return productos
+    
 if __name__ == "__main__":
     inicializar_base_de_datos()
     print("Base de datos y usuario demo ('admin' / 'admin123') listos.")
