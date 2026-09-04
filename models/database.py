@@ -307,27 +307,53 @@ def guardar_config_comercio(nombre: str, direccion: str, telefono: str, cuit: st
 def cambiar_password_usuario(usuario: str, password_actual: str, password_nueva: str) -> tuple[bool, str]:
     conexion = conectar()
     cursor = conexion.cursor()
-    cursor.execute("SELECT password FROM usuarios WHERE username = ?", (usuario,))
-    row = cursor.fetchone()
-    if not row or row[0] != password_actual:
-        conexion.close()
-        return False, "La contraseña actual no coincide."
+    try:
+        # 1. Buscamos por la columna real 'usuario'
+        cursor.execute("SELECT password FROM usuarios WHERE usuario = ?", (usuario,))
+        row = cursor.fetchone()
+        
+        if not row:
+            conexion.close()
+            return False, f"Usuario '{usuario}' no encontrado."
 
-    cursor.execute("UPDATE usuarios SET password = ? WHERE username = ?", (password_nueva, usuario))
-    conexion.commit()
-    conexion.close()
-    return True, "Contraseña actualizada correctamente."
+        # 2. Comparamos contra el hash SHA-256
+        hash_actual = hashear_password(password_actual)
+        if row[0] != hash_actual:
+            conexion.close()
+            return False, "La contraseña actual no coincide."
+
+        # 3. Guardamos la nueva clave hasheada
+        nuevo_hash = hashear_password(password_nueva)
+        cursor.execute("UPDATE usuarios SET password = ? WHERE usuario = ?", (nuevo_hash, usuario))
+        conexion.commit()
+        conexion.close()
+        return True, "Contraseña actualizada correctamente."
+    except Exception as e:
+        conexion.close()
+        return False, f"Error en BD: {e}"
 
 def crear_nuevo_operador(nuevo_usuario: str, password: str) -> tuple[bool, str]:
+    conexion = conectar()
+    cursor = conexion.cursor()
     try:
-        conexion = conectar()
-        cursor = conexion.cursor()
-        cursor.execute("INSERT INTO usuarios (username, password) VALUES (?, ?)", (nuevo_usuario, password))
+        # Validar si ya existe usando la columna 'usuario'
+        cursor.execute("SELECT 1 FROM usuarios WHERE usuario = ?", (nuevo_usuario.strip(),))
+        if cursor.fetchone():
+            conexion.close()
+            return False, f"El usuario '{nuevo_usuario}' ya existe en el sistema."
+
+        # Insertar con hash SHA-256
+        hash_pass = hashear_password(password.strip())
+        cursor.execute(
+            "INSERT INTO usuarios (usuario, password) VALUES (?, ?)", 
+            (nuevo_usuario.strip(), hash_pass)
+        )
         conexion.commit()
         conexion.close()
         return True, f"Usuario '{nuevo_usuario}' creado exitosamente."
-    except Exception:
-        return False, f"El usuario '{nuevo_usuario}' ya existe en el sistema."
+    except Exception as e:
+        conexion.close()
+        return False, f"Error al registrar: {e}"
 
 if __name__ == "__main__":
     inicializar_base_de_datos()

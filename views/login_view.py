@@ -5,7 +5,6 @@ import customtkinter as ctk
 # Ruta al modelo
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from models.database import validar_credenciales
-from views.main_view import MainView
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
@@ -14,6 +13,7 @@ class LoginView(ctk.CTk):
     def __init__(self):
         super().__init__()
 
+        self.usuario_autenticado = None
         self.title("GestorStockPro - Iniciar Sesión")
         ancho, alto = 400, 520
         self.update_idletasks()
@@ -117,7 +117,6 @@ class LoginView(ctk.CTk):
         usuario = self.entry_usuario.get().strip()
         password = self.entry_pass.get().strip()
 
-        # Debug en terminal para verificar captura
         print(f"Debug -> Usuario: '{usuario}' | Password: '{password}'")
 
         # 1. Campos obligatorios
@@ -134,15 +133,19 @@ class LoginView(ctk.CTk):
                 text="¡Acceso concedido!", 
                 text_color="#2E7D32"
             )
-            # Destruye la ventana de login y abre el dashboard principal
-            self.destroy()
-            app_principal = MainView(usuario_activo=usuario)
-            app_principal.mainloop()
+            self.usuario_autenticado = usuario
+            # Le damos 100ms para que termine la animación visual y luego cerramos ordenadamente
+            self.after(100, self.destroy)
         else:
             self.lbl_mensaje.configure(
                 text="Usuario o contraseña incorrectos.", 
                 text_color=self.color_error
             )
+
+    def abrir_dashboard(self, usuario):
+        self.destroy()
+        app_principal = MainView(usuario_activo=usuario)
+        app_principal.mainloop()
 
     def accion_ayuda_cuenta(self):
         self.lbl_mensaje.configure(
