@@ -7,8 +7,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from models.database import obtener_productos, reponer_stock
 
 class CargaStockFrame(ctk.CTkFrame):
-    def __init__(self, parent):
+    def __init__(self, parent, usuario_activo="admin"):
         super().__init__(parent, fg_color="transparent")
+        self.usuario_activo = usuario_activo
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -145,11 +146,15 @@ class CargaStockFrame(ctk.CTkFrame):
             return
 
         cantidad = int(cantidad_str)
+        # Se extrae primero la información del producto antes de ejecutar la reposición
         id_prod, stock_viejo, precio = self.productos_cache[seleccion]
 
-        if reponer_stock(id_prod, cantidad):
+        if reponer_stock(id_prod, cantidad, self.usuario_activo):
             nuevo_stock = stock_viejo + cantidad
-            messagebox.showinfo("Éxito", f"Se añadieron {cantidad} unidades correctamente.\nNuevo total: {nuevo_stock}")
+            messagebox.showinfo(
+                "Éxito", 
+                f"Se añadieron {cantidad} unidades correctamente.\nNuevo total: {nuevo_stock}"
+            )
             self.entry_cantidad.delete(0, "end")
             self.cargar_productos_en_combo()
             self.combo_productos.set(seleccion)

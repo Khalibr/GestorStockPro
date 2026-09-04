@@ -8,6 +8,7 @@ import customtkinter as ctk
 from PIL import Image
 from views.inventario_view import InventarioFrame
 from views.carga_stock_view import CargaStockFrame
+from views.historial_view import HistorialFrame
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
@@ -59,6 +60,7 @@ class MainView(ctk.CTk):
             "dollar": "assets/icons/dollar.png",
             "settings": "assets/icons/spanner.png",
             "theme": "assets/icons/brightness-half.png",
+            "history": "assets/icons/history.png"
         }
 
         for clave, ruta in iconos_map.items():
@@ -170,6 +172,12 @@ class MainView(ctk.CTk):
         )
         self.btn_ventas.pack(pady=5, padx=5, fill="x")
 
+        # Botón para Auditoría / Historial
+        self.btn_historial = self.crear_boton_sidebar(
+            "Historial", self.iconos.get("history"), lambda: self.cambiar_vista("Historial")
+        )
+        self.btn_historial.pack(pady=5, padx=5, fill="x")
+
         self.btn_config = self.crear_boton_sidebar(
             "Configuración", self.iconos.get("settings"), lambda: self.cambiar_vista("Configuración")
         )
@@ -216,7 +224,7 @@ class MainView(ctk.CTk):
         self.lbl_desc_vista.pack()
 
     def toggle_sidebar(self):
-        botones = [self.btn_inventario, self.btn_stock, self.btn_ventas, self.btn_config]
+        botones = [self.btn_inventario, self.btn_stock, self.btn_ventas, self.btn_historial, self.btn_config]
         if self.sidebar_expandido:
             self.sidebar_frame.configure(width=60)
             for b in botones:
@@ -236,8 +244,11 @@ class MainView(ctk.CTk):
             self.vista_inventario = InventarioFrame(self.contenido_frame)
             self.vista_inventario.pack(fill="both", expand=True, padx=10, pady=10)
         elif modulo == "Carga de Stock":
-            self.vista_carga = CargaStockFrame(self.contenido_frame)
+            self.vista_carga = CargaStockFrame(self.contenido_frame, usuario_activo=self.usuario_activo)
             self.vista_carga.pack(fill="both", expand=True, padx=10, pady=10)
+        elif modulo == "Historial":
+            self.vista_historial = HistorialFrame(self.contenido_frame)
+            self.vista_historial.pack(fill="both", expand=True, padx=10, pady=10)   
         else:
             lbl_vista_actual = ctk.CTkLabel(
                 self.contenido_frame,
@@ -263,6 +274,8 @@ class MainView(ctk.CTk):
         # Si la vista de inventario está montada, refresca sus estilos al instante
         if hasattr(self, 'vista_inventario') and self.vista_inventario.winfo_exists():
             self.vista_inventario.actualizar_estilos()
+        if hasattr(self, 'vista_historial') and self.vista_historial.winfo_exists():
+            self.vista_historial.actualizar_estilos()
 
     def cerrar_sesion(self):
         self.destroy()

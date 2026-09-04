@@ -36,6 +36,19 @@ def inicializar_base_de_datos():
         )
     """)
 
+    # Tabla de movimientos
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS movimientos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            tipo TEXT NOT NULL, -- 'INGRESO' o 'VENTA'
+            producto_id INTEGER NOT NULL,
+            cantidad INTEGER NOT NULL,
+            usuario TEXT NOT NULL,
+            FOREIGN KEY (producto_id) REFERENCES productos (id)
+        )
+    """)
+
     # Usuario demo inicial: admin / admin123
     usuario_demo = "admin"
     pass_demo_hash = hashear_password("admin123")
@@ -139,9 +152,9 @@ def eliminar_producto(id_prod: int) -> bool:
     except Exception as e:
         print(f"Error al eliminar: {e}")
         return False
-        
-def reponer_stock(id_prod: int, cantidad_a_sumar: int) -> bool:
-    """Incrementa las existencias de un producto existente."""
+
+def reponer_stock(id_prod: int, cantidad_a_sumar: int, usuario: str = "admin") -> bool:
+    """Incrementa las existencias y audita el movimiento."""
     try:
         conexion = conectar()
         cursor = conexion.cursor()
@@ -151,10 +164,42 @@ def reponer_stock(id_prod: int, cantidad_a_sumar: int) -> bool:
         )
         conexion.commit()
         conexion.close()
+        registrar_movimiento("INGRESO", id_prod, cantidad_a_sumar, usuario)
         return True
     except Exception as e:
         print(f"Error al reponer stock: {e}")
         return False
+
+def registrar_movimiento(tipo: str, id_prod: int, cantidad: int, usuario: str) -> bool:
+    """Registra una entrada o salida en el historial."""
+    try:
+        conexion = conectar()
+        cursor = conexion.cursor()
+        cursor.execute(
+            "INSERT INTO movimientos (tipo, producto_id, cantidad, usuario) VALUES (?, ?, ?, ?)",
+            (tipo, id_prod, cantidad, usuario)
+        )
+        conexion.commit()
+        conexion.close()
+        return True
+    except Exception as e:
+        print(f"Error al registrar movimiento: {e}")
+        return False
+
+def obtener_movimientos():
+    """Recupera los movimientos cruzados con el nombre del producto."""
+    conexion = conectar()
+    cursor = conexion.cursor()
+    query = """
+        SELECT m.id, m.fecha, m.tipo, p.nombre, m.cantidad, m.usuario
+        FROM movimientos m
+        JOIN productos p ON m.producto_id = p.id
+        ORDER BY m.id DESC
+    """
+    cursor.execute(query)
+    movimientos = cursor.fetchall()
+    conexion.close()
+    return movimientos
 
 if __name__ == "__main__":
     inicializar_base_de_datos()
