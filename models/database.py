@@ -139,6 +139,22 @@ def eliminar_producto(id_prod: int) -> bool:
     except Exception as e:
         print(f"Error al eliminar: {e}")
         return False
+        
+def reponer_stock(id_prod: int, cantidad_a_sumar: int) -> bool:
+    """Incrementa las existencias de un producto existente."""
+    try:
+        conexion = conectar()
+        cursor = conexion.cursor()
+        cursor.execute(
+            "UPDATE productos SET stock = stock + ? WHERE id = ?",
+            (cantidad_a_sumar, id_prod)
+        )
+        conexion.commit()
+        conexion.close()
+        return True
+    except Exception as e:
+        print(f"Error al reponer stock: {e}")
+        return False
 
 if __name__ == "__main__":
     inicializar_base_de_datos()

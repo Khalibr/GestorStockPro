@@ -7,6 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import customtkinter as ctk
 from PIL import Image
 from views.inventario_view import InventarioFrame
+from views.carga_stock_view import CargaStockFrame
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
@@ -228,15 +229,16 @@ class MainView(ctk.CTk):
             self.sidebar_expandido = True
 
     def cambiar_vista(self, modulo: str):
-        """Limpia el área central y renderiza la vista solicitada."""
         for widget in self.contenido_frame.winfo_children():
             widget.destroy()
 
         if modulo == "Inventario":
             self.vista_inventario = InventarioFrame(self.contenido_frame)
             self.vista_inventario.pack(fill="both", expand=True, padx=10, pady=10)
+        elif modulo == "Carga de Stock":
+            self.vista_carga = CargaStockFrame(self.contenido_frame)
+            self.vista_carga.pack(fill="both", expand=True, padx=10, pady=10)
         else:
-            # Placeholder temporal para las demás pantallas
             lbl_vista_actual = ctk.CTkLabel(
                 self.contenido_frame,
                 text=f"Módulo: {modulo}",
