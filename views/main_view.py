@@ -9,6 +9,7 @@ from PIL import Image
 from views.inventario_view import InventarioFrame
 from views.carga_stock_view import CargaStockFrame
 from views.historial_view import HistorialFrame
+from views.ventas_view import VentasFrame
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
@@ -248,7 +249,10 @@ class MainView(ctk.CTk):
             self.vista_carga.pack(fill="both", expand=True, padx=10, pady=10)
         elif modulo == "Historial":
             self.vista_historial = HistorialFrame(self.contenido_frame)
-            self.vista_historial.pack(fill="both", expand=True, padx=10, pady=10)   
+            self.vista_historial.pack(fill="both", expand=True, padx=10, pady=10)
+        elif modulo == "Ventas":
+            self.vista_ventas = VentasFrame(self.contenido_frame, usuario_activo=self.usuario_activo)
+            self.vista_ventas.pack(fill="both", expand=True, padx=10, pady=10)   
         else:
             lbl_vista_actual = ctk.CTkLabel(
                 self.contenido_frame,
@@ -276,6 +280,8 @@ class MainView(ctk.CTk):
             self.vista_inventario.actualizar_estilos()
         if hasattr(self, 'vista_historial') and self.vista_historial.winfo_exists():
             self.vista_historial.actualizar_estilos()
+        if hasattr(self, 'vista_ventas') and self.vista_ventas.winfo_exists():
+            self.vista_ventas.actualizar_estilos()
 
     def cerrar_sesion(self):
         self.destroy()

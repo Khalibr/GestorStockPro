@@ -201,6 +201,62 @@ def obtener_movimientos():
     conexion.close()
     return movimientos
 
+def procesar_venta(items_carrito: list, usuario: str) -> tuple[bool, str, int]:
+    """
+    Procesa una venta compuesta por múltiples productos.
+    items_carrito es una lista de diccionarios:
+    [{'id': int, 'nombre': str, 'cantidad': int, 'precio': float, 'subtotal': float}]
+
+    Retorna: (exito: bool, mensaje: str, id_venta: int)
+    """
+    if not items_carrito:
+        return False, "El carrito está vacío.", 0
+
+    conexion = conectar()
+    cursor = conexion.cursor()
+
+    try:
+        # Iniciar transacción explícita
+        cursor.execute("BEGIN TRANSACTION")
+
+        # 1. Validar existencias de todos los items
+        for item in items_carrito:
+            cursor.execute("SELECT stock, nombre FROM productos WHERE id = ?", (item['id'],))
+            resultado = cursor.fetchone()
+            if not resultado:
+                conexion.rollback()
+                conexion.close()
+                return False, f"El producto {item['nombre']} ya no existe.", 0
+
+            stock_actual, nombre = resultado
+            if stock_actual < item['cantidad']:
+                conexion.rollback()
+                conexion.close()
+                return False, f"Stock insuficiente para '{nombre}'. Disponible: {stock_actual}", 0
+
+    # 2. Descontar stock y registrar movimiento de auditoría por cada item
+        for item in items_carrito:
+            cursor.execute(
+                "UPDATE productos SET stock = stock - ? WHERE id = ?",
+                (item['cantidad'], item['id'])
+            )
+            cursor.execute(
+                "INSERT INTO movimientos (tipo, producto_id, cantidad, usuario) VALUES (?, ?, ?, ?)",
+                ("VENTA", item['id'], item['cantidad'], usuario)
+            )
+
+            conexion.commit()
+            # Usamos el id del último movimiento como número de operación de referencia
+            id_operacion = cursor.lastrowid
+            conexion.close()
+            return True, "Venta completada exitosamente.", id_operacion
+
+    except Exception as e:
+        conexion.rollback()
+        conexion.close()
+        print(f"Error crítico en venta: {e}")
+        return False, f"Error al procesar la venta: {e}", 0
+
 if __name__ == "__main__":
     inicializar_base_de_datos()
     print("Base de datos y usuario demo ('admin' / 'admin123') listos.")
