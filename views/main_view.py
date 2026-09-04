@@ -19,7 +19,11 @@ class MainView(ctk.CTk):
         self.sidebar_expandido = True
 
         self.title("GestorStockPro - Panel Principal")
-        self.geometry("1050x650")
+        ancho, alto = 1050, 650
+        self.update_idletasks()
+        pos_x = (self.winfo_screenwidth() - ancho) // 2
+        pos_y = (self.winfo_screenheight() - alto) // 2
+        self.geometry(f"{ancho}x{alto}+{pos_x}+{pos_y}")
         self.minsize(850, 500)
 
         # Paleta dinámica
@@ -119,12 +123,12 @@ class MainView(ctk.CTk):
         )
         self.btn_logout.pack(side="right", padx=(10, 15))
 
-        # Usuario activo al centro del bloque derecho
+       # Usuario activo destacado en verde pastel
         self.lbl_usuario = ctk.CTkLabel(
             self.header_frame,
             text=f"Usuario: {self.usuario_activo}",
-            font=ctk.CTkFont(family="Helvetica", size=12),
-            text_color=self.color_subtexto
+            font=ctk.CTkFont(family="Helvetica", size=13, weight="bold"),
+            text_color=("#2E7D32", "#81C784")  # Verde pastel en claro y menta en oscuro
         )
         self.lbl_usuario.pack(side="right", padx=10)
 

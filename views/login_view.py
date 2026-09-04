@@ -5,6 +5,7 @@ import customtkinter as ctk
 # Ruta al modelo
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from models.database import validar_credenciales
+from views.main_view import MainView
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
@@ -14,7 +15,11 @@ class LoginView(ctk.CTk):
         super().__init__()
 
         self.title("GestorStockPro - Iniciar Sesión")
-        self.geometry("400x530")
+        ancho, alto = 400, 520
+        self.update_idletasks()
+        pos_x = (self.winfo_screenwidth() - ancho) // 2
+        pos_y = (self.winfo_screenheight() - alto) // 2
+        self.geometry(f"{ancho}x{alto}+{pos_x}+{pos_y}")
         self.resizable(False, False)
 
         # Paleta pastel
@@ -129,13 +134,15 @@ class LoginView(ctk.CTk):
                 text="¡Acceso concedido!", 
                 text_color="#2E7D32"
             )
-            print("Login exitoso.")
+            # Destruye la ventana de login y abre el dashboard principal
+            self.destroy()
+            app_principal = MainView(usuario_activo=usuario)
+            app_principal.mainloop()
         else:
             self.lbl_mensaje.configure(
                 text="Usuario o contraseña incorrectos.", 
                 text_color=self.color_error
             )
-            print("Fallo de autenticación.")
 
     def accion_ayuda_cuenta(self):
         self.lbl_mensaje.configure(

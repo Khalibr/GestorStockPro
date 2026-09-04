@@ -88,7 +88,58 @@ def buscar_productos(termino: str):
     productos = cursor.fetchall()
     conexion.close()
     return productos
-    
+
+def insertar_producto(nombre: str, categoria: str, stock: int, precio: float) -> bool:
+    """Inserta un nuevo producto en la base de datos."""
+    try:
+        conexion = conectar()
+        cursor = conexion.cursor()
+        cursor.execute(
+            "INSERT INTO productos (nombre, categoria, stock, precio) VALUES (?, ?, ?, ?)",
+            (nombre, categoria, stock, precio)
+        )
+        conexion.commit()
+        conexion.close()
+        return True
+    except Exception as e:
+        print(f"Error al insertar producto: {e}")
+        return False
+
+
+def actualizar_producto(id_prod: int, nombre: str, categoria: str, stock: int, precio: float) -> bool:
+    """Modifica los datos de un producto existente."""
+    try:
+        conexion = conectar()
+        cursor = conexion.cursor()
+        cursor.execute(
+            """
+            UPDATE productos 
+            SET nombre = ?, categoria = ?, stock = ?, precio = ? 
+            WHERE id = ?
+            """,
+            (nombre, categoria, stock, precio, id_prod)
+        )
+        conexion.commit()
+        conexion.close()
+        return True
+    except Exception as e:
+        print(f"Error al actualizar: {e}")
+        return False
+
+
+def eliminar_producto(id_prod: int) -> bool:
+    """Elimina un producto por su ID."""
+    try:
+        conexion = conectar()
+        cursor = conexion.cursor()
+        cursor.execute("DELETE FROM productos WHERE id = ?", (id_prod,))
+        conexion.commit()
+        conexion.close()
+        return True
+    except Exception as e:
+        print(f"Error al eliminar: {e}")
+        return False
+
 if __name__ == "__main__":
     inicializar_base_de_datos()
     print("Base de datos y usuario demo ('admin' / 'admin123') listos.")
