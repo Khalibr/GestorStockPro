@@ -4,9 +4,6 @@ from PIL import Image, ImageOps
 from models.database import validar_credenciales
 from tkinter import messagebox
 from utils.rutas import ruta_recurso
-# ...
-ruta_ojo = ruta_recurso("assets/icons/eye.png")
-ruta_ojo_closed = ruta_recurso("assets/icons/eye-closed.png")
 
 class LoginView(ctk.CTk):
     def __init__(self):
@@ -37,8 +34,8 @@ class LoginView(ctk.CTk):
         self.vincular_eventos()
 
     def cargar_iconos_pass(self):
-        ruta_ojo = "assets/icons/eye.png"
-        ruta_ojo_closed = "assets/icons/eye-closed.png"
+        ruta_ojo = ruta_recurso(os.path.join("assets", "icons", "eye.png"))
+        ruta_ojo_closed = ruta_recurso(os.path.join("assets", "icons", "eye-closed.png"))
 
         def procesar(ruta):
             if not os.path.exists(ruta):

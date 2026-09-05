@@ -12,15 +12,6 @@ from views.historial_view import HistorialFrame
 from views.ventas_view import VentasFrame
 from views.configuracion_view import ConfiguracionFrame
 from utils.rutas import ruta_recurso
-# ...
-iconos_map = {
-    "box": ruta_recurso("assets/icons/treasure-chest.png"),
-    "chart": ruta_recurso("assets/icons/chart-bar-columns.png"),
-    "dollar": ruta_recurso("assets/icons/dollar.png"),
-    "settings": ruta_recurso("assets/icons/spanner.png"),
-    "theme": ruta_recurso("assets/icons/brightness-half.png"),
-    "history": ruta_recurso("assets/icons/history.png")
-}
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
@@ -67,27 +58,24 @@ class MainView(ctk.CTk):
 
         self.iconos = {}
         iconos_map = {
-            "box": "assets/icons/treasure-chest.png",
-            "chart": "assets/icons/chart-bar-columns.png",
-            "dollar": "assets/icons/dollar.png",
-            "settings": "assets/icons/spanner.png",
-            "theme": "assets/icons/brightness-half.png",
-            "history": "assets/icons/history.png"
+            "box": ruta_recurso(os.path.join("assets", "icons", "treasure-chest.png")),
+            "chart": ruta_recurso(os.path.join("assets", "icons", "chart-bar-columns.png")),
+            "dollar": ruta_recurso(os.path.join("assets", "icons", "dollar.png")),
+            "settings": ruta_recurso(os.path.join("assets", "icons", "spanner.png")),
+            "theme": ruta_recurso(os.path.join("assets", "icons", "brightness-half.png")),
+            "history": ruta_recurso(os.path.join("assets", "icons", "history.png"))
         }
 
         for clave, ruta in iconos_map.items():
             if os.path.exists(ruta):
-                # 1. Imagen original (negra para el tema claro)
                 img_dark_mode_asset = Image.open(ruta).convert("RGBA")
 
-                # 2. Invertir solo los canales RGB manteniendo la transparencia alfa
                 r, g, b, alpha = img_dark_mode_asset.split()
                 rgb_image = Image.merge("RGB", (r, g, b))
                 inverted_rgb = ImageOps.invert(rgb_image)
                 r2, g2, b2 = inverted_rgb.split()
                 img_white = Image.merge("RGBA", (r2, g2, b2, alpha))
 
-                # 3. Asignar versión negra a light_image y blanca a dark_image
                 self.iconos[clave] = ctk.CTkImage(
                     light_image=img_dark_mode_asset,
                     dark_image=img_white,
