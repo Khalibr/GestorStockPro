@@ -9,7 +9,9 @@ from models.database import (
     obtener_config_comercio, 
     guardar_config_comercio, 
     cambiar_password_usuario, 
-    crear_nuevo_operador
+    crear_nuevo_operador,
+    obtener_operadores,
+    resetear_password_por_admin
 )
 
 class ConfiguracionFrame(ctk.CTkFrame):
@@ -43,6 +45,7 @@ class ConfiguracionFrame(ctk.CTkFrame):
         self.icono_ojo_off = procesar(ruta_ojo_off)
 
     def crear_panel_comercio(self):
+        # Panel fijo sin scroll: entra cómodamente tanto para admin como para vendedor
         card = ctk.CTkFrame(self, fg_color=("white", "#2A2A2D"), corner_radius=12)
         card.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=10)
         card.grid_columnconfigure(0, weight=1)
@@ -112,6 +115,69 @@ class ConfiguracionFrame(ctk.CTkFrame):
                 lbl_valor.grid(row=0, column=1, padx=10, pady=8, sticky="e")
                 self.labels_comercio[clave] = lbl_valor
 
+    def crear_panel_seguridad(self):
+        es_admin = (self.usuario_activo == "admin")
+
+        # Scroll solo si es admin (por la cantidad de bloques apilados). 
+        # Si es vendedor, usa Frame fijo ya que solo cambia su propia contraseña.
+        if es_admin:
+            card = ctk.CTkScrollableFrame(self, fg_color=("white", "#2A2A2D"), corner_radius=12)
+        else:
+            card = ctk.CTkFrame(self, fg_color=("white", "#2A2A2D"), corner_radius=12)
+
+        card.grid(row=0, column=1, sticky="nsew", padx=(10, 0), pady=10)
+        card.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(card, text="Seguridad y Usuarios", font=ctk.CTkFont(size=18, weight="bold")).grid(row=0, column=0, pady=(20, 5), padx=20, sticky="w")
+        ctk.CTkLabel(card, text=f"Sesión iniciada como: {self.usuario_activo}", font=ctk.CTkFont(size=12), text_color="#81C784").grid(row=1, column=0, pady=(0, 15), padx=20, sticky="w")
+
+        # Cambio de password (común a ambos roles)
+        ctk.CTkLabel(card, text="Cambiar Contraseña", font=ctk.CTkFont(size=14, weight="bold")).grid(row=2, column=0, pady=(5, 5), padx=20, sticky="w")
+        self.txt_pass_actual = self.crear_campo_pass_con_ojo(card, "Contraseña actual", 3)
+        self.txt_pass_nueva = self.crear_campo_pass_con_ojo(card, "Nueva contraseña", 4)
+
+        btn_cambiar_pass = ctk.CTkButton(card, text="Actualizar Contraseña", height=35, fg_color="#4A4A4D", hover_color="#3A3A3D", command=self.cambiar_password)
+        btn_cambiar_pass.grid(row=5, column=0, pady=(5, 20), padx=20, sticky="ew")
+
+        # Bloques exclusivos de administración
+        if es_admin:
+            # Alta de operadores
+            ctk.CTkLabel(card, text="Alta de Operador / Vendedor", font=ctk.CTkFont(size=14, weight="bold")).grid(row=6, column=0, pady=(10, 5), padx=20, sticky="w")
+            self.txt_nuevo_user = ctk.CTkEntry(card, placeholder_text="Nuevo nombre de usuario", height=35)
+            self.txt_nuevo_user.grid(row=7, column=0, pady=5, padx=20, sticky="ew")
+            self.txt_nuevo_pass = self.crear_campo_pass_con_ojo(card, "Contraseña provisoria", 8)
+
+            btn_crear_op = ctk.CTkButton(card, text="+ Registrar Nuevo Operador", height=35, fg_color="#2E7D32", hover_color="#256428", command=self.crear_operador)
+            btn_crear_op.grid(row=9, column=0, pady=(5, 15), padx=20, sticky="ew")
+
+            # Restablecer contraseña de operador
+            ctk.CTkLabel(card, text="Restablecer Clave de Operador", font=ctk.CTkFont(size=14, weight="bold")).grid(row=10, column=0, pady=(10, 5), padx=20, sticky="w")
+            
+            lista_ops = obtener_operadores()
+            self.combo_operadores = ctk.CTkComboBox(
+                card, 
+                height=35, 
+                values=lista_ops if lista_ops else ["Sin operadores registrados"],
+                state="readonly"
+            )
+            self.combo_operadores.grid(row=11, column=0, pady=5, padx=20, sticky="ew")
+            if lista_ops:
+                self.combo_operadores.set(lista_ops[0])
+            else:
+                self.combo_operadores.set("Sin operadores registrados")
+
+            self.txt_reset_pass = self.crear_campo_pass_con_ojo(card, "Nueva contraseña provisoria", 12)
+
+            btn_reset = ctk.CTkButton(
+                card, 
+                text="Restablecer Contraseña", 
+                height=35, 
+                fg_color="#4A4A4D", 
+                hover_color="#3A3A3D", 
+                command=self.accion_resetear_operador
+            )
+            btn_reset.grid(row=13, column=0, pady=(5, 20), padx=20, sticky="ew")
+
     def crear_campo(self, parent, placeholder, fila):
         entry = ctk.CTkEntry(parent, placeholder_text=placeholder, height=35)
         entry.grid(row=fila, column=0, pady=6, padx=20, sticky="ew")
@@ -161,31 +227,27 @@ class ConfiguracionFrame(ctk.CTkFrame):
             self.labels_comercio["cuit"].configure(text=c.get("cuit", ""))
             self.labels_comercio["leyenda"].configure(text=c.get("leyenda", ""))
 
-    def crear_panel_seguridad(self):
-        card = ctk.CTkFrame(self, fg_color=("white", "#2A2A2D"), corner_radius=12)
-        card.grid(row=0, column=1, sticky="nsew", padx=(10, 0), pady=10)
-        card.grid_columnconfigure(0, weight=1)
+    def accion_resetear_operador(self):
+        usuario = self.combo_operadores.get().strip()
+        nueva_pass = self.txt_reset_pass.get().strip()
 
-        ctk.CTkLabel(card, text="Seguridad y Usuarios", font=ctk.CTkFont(size=18, weight="bold")).grid(row=0, column=0, pady=(20, 5), padx=20, sticky="w")
-        ctk.CTkLabel(card, text=f"Sesión iniciada como: {self.usuario_activo}", font=ctk.CTkFont(size=12), text_color="#81C784").grid(row=1, column=0, pady=(0, 15), padx=20, sticky="w")
+        if usuario in ["Sin operadores registrados", ""] or not nueva_pass:
+            messagebox.showwarning("Atención", "Selecciona un operador e ingresa la nueva clave.")
+            return
 
-        # Cambio de password
-        ctk.CTkLabel(card, text="Cambiar Contraseña", font=ctk.CTkFont(size=14, weight="bold")).grid(row=2, column=0, pady=(5, 5), padx=20, sticky="w")
-        self.txt_pass_actual = self.crear_campo_pass_con_ojo(card, "Contraseña actual", 3)
-        self.txt_pass_nueva = self.crear_campo_pass_con_ojo(card, "Nueva contraseña", 4)
+        ok, msj = resetear_password_por_admin(usuario, nueva_pass)
+        if ok:
+            messagebox.showinfo("Éxito", msj)
+            self.txt_reset_pass.delete(0, "end")
+        else:
+            messagebox.showerror("Error", msj)
 
-        btn_cambiar_pass = ctk.CTkButton(card, text="Actualizar Contraseña", height=35, fg_color="#4A4A4D", hover_color="#3A3A3D", command=self.cambiar_password)
-        btn_cambiar_pass.grid(row=5, column=0, pady=(5, 20), padx=20, sticky="ew")
-
-        # Crear nuevo usuario (solo visible si es admin)
-        if self.usuario_activo == "admin":
-            ctk.CTkLabel(card, text="Alta de Operador / Vendedor", font=ctk.CTkFont(size=14, weight="bold")).grid(row=6, column=0, pady=(10, 5), padx=20, sticky="w")
-            self.txt_nuevo_user = ctk.CTkEntry(card, placeholder_text="Nuevo nombre de usuario", height=35)
-            self.txt_nuevo_user.grid(row=7, column=0, pady=5, padx=20, sticky="ew")
-            self.txt_nuevo_pass = self.crear_campo_pass_con_ojo(card, "Contraseña provisoria", 8)
-
-            btn_crear_op = ctk.CTkButton(card, text="+ Registrar Nuevo Operador", height=35, fg_color="#2E7D32", hover_color="#256428", command=self.crear_operador)
-            btn_crear_op.grid(row=9, column=0, pady=(5, 20), padx=20, sticky="ew")
+    def refrescar_combo_operadores(self):
+        if hasattr(self, "combo_operadores"):
+            ops = obtener_operadores()
+            valores = ops if ops else ["Sin operadores registrados"]
+            self.combo_operadores.configure(values=valores)
+            self.combo_operadores.set(valores[0])
 
     def guardar_comercio(self):
         ok = guardar_config_comercio(
@@ -225,6 +287,7 @@ class ConfiguracionFrame(ctk.CTkFrame):
         ok, msj = crear_nuevo_operador(u, p)
         if ok:
             messagebox.showinfo("Éxito", msj)
+            self.refrescar_combo_operadores()
             self.txt_nuevo_user.delete(0, "end")
             self.txt_nuevo_pass.delete(0, "end")
         else:

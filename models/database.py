@@ -355,6 +355,37 @@ def crear_nuevo_operador(nuevo_usuario: str, password: str) -> tuple[bool, str]:
         conexion.close()
         return False, f"Error al registrar: {e}"
 
+def obtener_operadores() -> list[str]:
+    """Retorna la lista de usuarios que no sean admin."""
+    conexion = conectar()
+    cursor = conexion.cursor()
+    cursor.execute("SELECT usuario FROM usuarios WHERE usuario != 'admin' ORDER BY usuario ASC")
+    rows = cursor.fetchall()
+    conexion.close()
+    return [r[0] for r in rows]
+
+def resetear_password_por_admin(usuario_objetivo: str, password_nueva: str) -> tuple[bool, str]:
+    """Permite al admin redefinir la clave de un operador sin conocer la actual."""
+    if usuario_objetivo == "admin":
+        return False, "Para cambiar la clave de admin usa 'Cambiar Contraseña'."
+
+    conexion = conectar()
+    cursor = conexion.cursor()
+    try:
+        cursor.execute("SELECT id FROM usuarios WHERE usuario = ?", (usuario_objetivo,))
+        if not cursor.fetchone():
+            conexion.close()
+            return False, f"El usuario '{usuario_objetivo}' no existe."
+
+        nuevo_hash = hashear_password(password_nueva)
+        cursor.execute("UPDATE usuarios SET password = ? WHERE usuario = ?", (nuevo_hash, usuario_objetivo))
+        conexion.commit()
+        conexion.close()
+        return True, f"Contraseña de '{usuario_objetivo}' restablecida con éxito."
+    except Exception as e:
+        conexion.close()
+        return False, f"Error en BD: {e}"
+
 if __name__ == "__main__":
     inicializar_base_de_datos()
     print("Base de datos y usuario demo ('admin' / 'admin123') listos.")
