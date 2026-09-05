@@ -3,17 +3,22 @@ from views.login_view import LoginView
 from views.main_view import MainView
 
 def main():
-    # 1. Asegurar base de datos lista
     inicializar_base_de_datos()
 
-    # 2. Abrir Login y esperar a que el usuario se autentique
-    login = LoginView()
-    login.mainloop()
+    while True:
+        login = LoginView()
+        login.mainloop()
 
-    # 3. Si el login fue exitoso, iniciar la aplicación principal sin conflictos
-    if hasattr(login, "usuario_autenticado") and login.usuario_autenticado:
-        app = MainView(usuario_activo=login.usuario_autenticado)
+        usuario = getattr(login, "usuario_autenticado", None)
+        if not usuario:
+            break  # Si cerró la ventana con la 'X', termina el programa
+
+        app = MainView(usuario_activo=usuario)
         app.mainloop()
+
+        # Si en MainView no se presionó cerrar sesión, salir del ciclo
+        if not getattr(app, "sesion_reiniciada", False):
+            break
 
 if __name__ == "__main__":
     main()

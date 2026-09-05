@@ -134,8 +134,8 @@ class LoginView(ctk.CTk):
                 text_color="#2E7D32"
             )
             self.usuario_autenticado = usuario
-            # Le damos 100ms para que termine la animación visual y luego cerramos ordenadamente
-            self.after(100, self.destroy)
+            self.quit()      # Detiene el bucle principal de inmediato
+            self.destroy()   # Destruye la ventana de login por completo
         else:
             self.lbl_mensaje.configure(
                 text="Usuario o contraseña incorrectos.", 

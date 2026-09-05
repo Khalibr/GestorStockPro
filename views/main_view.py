@@ -288,10 +288,9 @@ class MainView(ctk.CTk):
             self.vista_ventas.actualizar_estilos()
 
     def cerrar_sesion(self):
+        self.sesion_reiniciada = True
+        self.quit()
         self.destroy()
-        from views.login_view import LoginView
-        login = LoginView()
-        login.mainloop()
 
 if __name__ == "__main__":
     app = MainView()

@@ -28,17 +28,96 @@ class ConfiguracionFrame(ctk.CTkFrame):
         card.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=10)
         card.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(card, text="Datos del Comercio (Ticket)", font=ctk.CTkFont(size=18, weight="bold")).grid(row=0, column=0, pady=(20, 5), padx=20, sticky="w")
-        ctk.CTkLabel(card, text="Esta información figurará en el comprobante impreso.", font=ctk.CTkFont(size=12), text_color="gray").grid(row=1, column=0, pady=(0, 15), padx=20, sticky="w")
+        ctk.CTkLabel(
+            card, 
+            text="Datos del Comercio (Ticket)", 
+            font=ctk.CTkFont(size=18, weight="bold")
+        ).grid(row=0, column=0, pady=(20, 5), padx=20, sticky="w")
 
-        self.txt_nombre = self.crear_campo(card, "Nombre Comercial", 2)
-        self.txt_direccion = self.crear_campo(card, "Dirección del Local", 3)
-        self.txt_telefono = self.crear_campo(card, "Teléfono de Contacto", 4)
-        self.txt_cuit = self.crear_campo(card, "CUIT / RUT / Identificación", 5)
-        self.txt_leyenda = self.crear_campo(card, "Mensaje al pie (Ej: Gracias por su compra)", 6)
+        es_admin = (self.usuario_activo == "admin")
 
-        btn_guardar = ctk.CTkButton(card, text="Guardar Cambios del Ticket", height=38, fg_color="#9B7EBD", hover_color="#8668A6", command=self.guardar_comercio)
-        btn_guardar.grid(row=7, column=0, pady=(15, 20), padx=20, sticky="ew")
+        if es_admin:
+            # VISTA ADMIN: Inputs editables
+            ctk.CTkLabel(
+                card, 
+                text="Esta información figurará en el comprobante impreso.", 
+                font=ctk.CTkFont(size=12), 
+                text_color="gray"
+            ).grid(row=1, column=0, pady=(0, 15), padx=20, sticky="w")
+
+            self.txt_nombre = self.crear_campo(card, "Nombre Comercial", 2)
+            self.txt_direccion = self.crear_campo(card, "Dirección del Local", 3)
+            self.txt_telefono = self.crear_campo(card, "Teléfono de Contacto", 4)
+            self.txt_cuit = self.crear_campo(card, "CUIT / RUT / Identificación", 5)
+            self.txt_leyenda = self.crear_campo(card, "Mensaje al pie (Ej: Gracias por su compra)", 6)
+
+            btn_guardar = ctk.CTkButton(
+                card, 
+                text="Guardar Cambios del Ticket", 
+                height=38, 
+                fg_color="#9B7EBD", 
+                hover_color="#8668A6", 
+                command=self.guardar_comercio
+            )
+            btn_guardar.grid(row=7, column=0, pady=(15, 20), padx=20, sticky="ew")
+
+        else:
+            # VISTA VENDEDOR: Tarjetas de solo lectura con Labels
+            ctk.CTkLabel(
+                card, 
+                text="Ficha institucional del comercio (Solo lectura).", 
+                font=ctk.CTkFont(size=12), 
+                text_color="gray"
+            ).grid(row=1, column=0, pady=(0, 15), padx=20, sticky="w")
+
+            self.labels_comercio = {}
+            campos_info = [
+                ("nombre", "Nombre Comercial:", 2),
+                ("direccion", "Dirección:", 3),
+                ("telefono", "Teléfono:", 4),
+                ("cuit", "Identificación Tributaria:", 5),
+                ("leyenda", "Leyenda Ticket:", 6)
+            ]
+
+            for clave, etiqueta, fila in campos_info:
+                contenedor = ctk.CTkFrame(card, fg_color=("#F3EFEA", "#202023"), corner_radius=8)
+                contenedor.grid(row=fila, column=0, pady=5, padx=20, sticky="ew")
+                contenedor.grid_columnconfigure(1, weight=1)
+
+                ctk.CTkLabel(
+                    contenedor, 
+                    text=f"  {etiqueta}", 
+                    font=ctk.CTkFont(size=12, weight="bold"), 
+                    text_color="#8E8E93"
+                ).grid(row=0, column=0, padx=(10, 5), pady=8, sticky="w")
+
+                lbl_valor = ctk.CTkLabel(
+                    contenedor, 
+                    text="---", 
+                    font=ctk.CTkFont(size=13)
+                )
+                lbl_valor.grid(row=0, column=1, padx=10, pady=8, sticky="e")
+                self.labels_comercio[clave] = lbl_valor
+
+    def crear_campo(self, parent, placeholder, fila):
+        entry = ctk.CTkEntry(parent, placeholder_text=placeholder, height=35)
+        entry.grid(row=fila, column=0, pady=6, padx=20, sticky="ew")
+        return entry
+
+    def cargar_datos_comercio(self):
+        c = obtener_config_comercio()
+        if self.usuario_activo == "admin":
+            self.txt_nombre.insert(0, c["nombre"])
+            self.txt_direccion.insert(0, c["direccion"])
+            self.txt_telefono.insert(0, c["telefono"])
+            self.txt_cuit.insert(0, c["cuit"])
+            self.txt_leyenda.insert(0, c["leyenda"])
+        else:
+            self.labels_comercio["nombre"].configure(text=c.get("nombre", ""))
+            self.labels_comercio["direccion"].configure(text=c.get("direccion", ""))
+            self.labels_comercio["telefono"].configure(text=c.get("telefono", ""))
+            self.labels_comercio["cuit"].configure(text=c.get("cuit", ""))
+            self.labels_comercio["leyenda"].configure(text=c.get("leyenda", ""))
 
     def crear_panel_seguridad(self):
         card = ctk.CTkFrame(self, fg_color=("white", "#2A2A2D"), corner_radius=12)
@@ -68,19 +147,6 @@ class ConfiguracionFrame(ctk.CTkFrame):
 
             btn_crear_op = ctk.CTkButton(card, text="+ Registrar Nuevo Operador", height=35, fg_color="#2E7D32", hover_color="#256428", command=self.crear_operador)
             btn_crear_op.grid(row=9, column=0, pady=(5, 20), padx=20, sticky="ew")
-
-    def crear_campo(self, parent, placeholder, fila):
-        entry = ctk.CTkEntry(parent, placeholder_text=placeholder, height=35)
-        entry.grid(row=fila, column=0, pady=6, padx=20, sticky="ew")
-        return entry
-
-    def cargar_datos_comercio(self):
-        c = obtener_config_comercio()
-        self.txt_nombre.insert(0, c["nombre"])
-        self.txt_direccion.insert(0, c["direccion"])
-        self.txt_telefono.insert(0, c["telefono"])
-        self.txt_cuit.insert(0, c["cuit"])
-        self.txt_leyenda.insert(0, c["leyenda"])
 
     def guardar_comercio(self):
         ok = guardar_config_comercio(
