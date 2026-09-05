@@ -128,14 +128,25 @@ class MainView(ctk.CTk):
         )
         self.btn_logout.pack(side="right", padx=(10, 15))
 
-       # Usuario activo destacado en verde pastel
-        self.lbl_usuario = ctk.CTkLabel(
-            self.header_frame,
-            text=f"Usuario: {self.usuario_activo}",
-            font=ctk.CTkFont(family="Helvetica", size=13, weight="bold"),
-            text_color=("#2E7D32", "#81C784")  # Verde pastel en claro y menta en oscuro
+       # Contenedor de usuario: prefijo neutro dinámico + nombre en verde pastel/menta
+        self.frame_user = ctk.CTkFrame(self.header_frame, fg_color="transparent")
+        self.frame_user.pack(side="right", padx=(5, 12))
+
+        self.lbl_user_prefix = ctk.CTkLabel(
+            self.frame_user,
+            text="Usuario: ",
+            font=ctk.CTkFont(family="Helvetica", size=13),
+            text_color=self.color_texto  # Neutro adaptado a Dark/Light
         )
-        self.lbl_usuario.pack(side="right", padx=10)
+        self.lbl_user_prefix.pack(side="left")
+
+        self.lbl_user_nombre = ctk.CTkLabel(
+            self.frame_user,
+            text=self.usuario_activo,
+            font=ctk.CTkFont(family="Helvetica", size=13, weight="bold"),
+            text_color=("#2E7D32", "#81C784")  # Resaltado limpio
+        )
+        self.lbl_user_nombre.pack(side="left")
 
         # Botón Tema primero a la izquierda del bloque derecho
         self.btn_tema = ctk.CTkButton(

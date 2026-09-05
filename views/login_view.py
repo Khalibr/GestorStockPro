@@ -2,6 +2,7 @@ import os
 import customtkinter as ctk
 from PIL import Image, ImageOps
 from models.database import validar_credenciales
+from tkinter import messagebox
 
 class LoginView(ctk.CTk):
     def __init__(self):
@@ -183,9 +184,13 @@ class LoginView(ctk.CTk):
             )
 
     def accion_ayuda_cuenta(self):
-        self.lbl_mensaje.configure(
-            text="Módulo de registro/recuperación en desarrollo.",
-            text_color=self.color_texto
+        messagebox.showinfo(
+            "Acceso y Seguridad",
+            "Por políticas de seguridad del comercio:\n\n"
+            "• Para restablecer tu contraseña o solicitar una cuenta nueva, "
+            "comunícate con el Administrador del sistema.\n"
+            "• Las altas y modificaciones se gestionan únicamente desde el "
+            "panel interno de Configuración."
         )
 
 if __name__ == "__main__":
