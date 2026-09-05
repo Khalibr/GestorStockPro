@@ -1,6 +1,7 @@
 import sys
 import os
 import customtkinter as ctk
+from PIL import Image, ImageOps
 from tkinter import messagebox
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -19,9 +20,27 @@ class ConfiguracionFrame(ctk.CTkFrame):
         self.grid_columnconfigure((0, 1), weight=1)
         self.grid_rowconfigure(0, weight=1)
 
+        self.cargar_iconos_pass()
         self.crear_panel_comercio()
         self.crear_panel_seguridad()
         self.cargar_datos_comercio()
+
+    def cargar_iconos_pass(self):
+        ruta_ojo = "assets/icons/eye.png"
+        ruta_ojo_off = "assets/icons/eye-closed.png"
+
+        def procesar(ruta):
+            if not os.path.exists(ruta):
+                return None
+            img_dark = Image.open(ruta).convert("RGBA")
+            r, g, b, a = img_dark.split()
+            inverted = ImageOps.invert(Image.merge("RGB", (r, g, b)))
+            r2, g2, b2 = inverted.split()
+            img_light = Image.merge("RGBA", (r2, g2, b2, a))
+            return ctk.CTkImage(light_image=img_dark, dark_image=img_light, size=(16, 16))
+
+        self.icono_ojo = procesar(ruta_ojo)
+        self.icono_ojo_off = procesar(ruta_ojo_off)
 
     def crear_panel_comercio(self):
         card = ctk.CTkFrame(self, fg_color=("white", "#2A2A2D"), corner_radius=12)
@@ -37,7 +56,6 @@ class ConfiguracionFrame(ctk.CTkFrame):
         es_admin = (self.usuario_activo == "admin")
 
         if es_admin:
-            # VISTA ADMIN: Inputs editables
             ctk.CTkLabel(
                 card, 
                 text="Esta información figurará en el comprobante impreso.", 
@@ -62,7 +80,6 @@ class ConfiguracionFrame(ctk.CTkFrame):
             btn_guardar.grid(row=7, column=0, pady=(15, 20), padx=20, sticky="ew")
 
         else:
-            # VISTA VENDEDOR: Tarjetas de solo lectura con Labels
             ctk.CTkLabel(
                 card, 
                 text="Ficha institucional del comercio (Solo lectura).", 
@@ -91,11 +108,7 @@ class ConfiguracionFrame(ctk.CTkFrame):
                     text_color="#8E8E93"
                 ).grid(row=0, column=0, padx=(10, 5), pady=8, sticky="w")
 
-                lbl_valor = ctk.CTkLabel(
-                    contenedor, 
-                    text="---", 
-                    font=ctk.CTkFont(size=13)
-                )
+                lbl_valor = ctk.CTkLabel(contenedor, text="---", font=ctk.CTkFont(size=13))
                 lbl_valor.grid(row=0, column=1, padx=10, pady=8, sticky="e")
                 self.labels_comercio[clave] = lbl_valor
 
@@ -103,6 +116,35 @@ class ConfiguracionFrame(ctk.CTkFrame):
         entry = ctk.CTkEntry(parent, placeholder_text=placeholder, height=35)
         entry.grid(row=fila, column=0, pady=6, padx=20, sticky="ew")
         return entry
+
+    def crear_campo_pass_con_ojo(self, parent, placeholder, fila):
+        frame = ctk.CTkFrame(parent, fg_color="transparent")
+        frame.grid(row=fila, column=0, pady=5, padx=20, sticky="ew")
+        frame.grid_columnconfigure(0, weight=1)
+
+        entry = ctk.CTkEntry(frame, placeholder_text=placeholder, show="*", height=35)
+        entry.grid(row=0, column=0, sticky="ew", padx=(0, 5))
+
+        btn_ojo = ctk.CTkButton(
+            frame,
+            text="" if self.icono_ojo_off else "👁",
+            image=self.icono_ojo_off,
+            width=35,
+            height=35,
+            fg_color=("#EDE8F5", "#3A3A3C"),
+            hover_color=("#DDD7E8", "#4A4A4D"),
+            command=lambda: self.toggle_pass_field(entry, btn_ojo)
+        )
+        btn_ojo.grid(row=0, column=1)
+        return entry
+
+    def toggle_pass_field(self, entry, btn):
+        if entry.cget("show") == "*":
+            entry.configure(show="")
+            btn.configure(image=self.icono_ojo, text="" if self.icono_ojo else "🙈")
+        else:
+            entry.configure(show="*")
+            btn.configure(image=self.icono_ojo_off, text="" if self.icono_ojo_off else "👁")
 
     def cargar_datos_comercio(self):
         c = obtener_config_comercio()
@@ -129,10 +171,8 @@ class ConfiguracionFrame(ctk.CTkFrame):
 
         # Cambio de password
         ctk.CTkLabel(card, text="Cambiar Contraseña", font=ctk.CTkFont(size=14, weight="bold")).grid(row=2, column=0, pady=(5, 5), padx=20, sticky="w")
-        self.txt_pass_actual = ctk.CTkEntry(card, placeholder_text="Contraseña actual", show="*", height=35)
-        self.txt_pass_actual.grid(row=3, column=0, pady=5, padx=20, sticky="ew")
-        self.txt_pass_nueva = ctk.CTkEntry(card, placeholder_text="Nueva contraseña", show="*", height=35)
-        self.txt_pass_nueva.grid(row=4, column=0, pady=5, padx=20, sticky="ew")
+        self.txt_pass_actual = self.crear_campo_pass_con_ojo(card, "Contraseña actual", 3)
+        self.txt_pass_nueva = self.crear_campo_pass_con_ojo(card, "Nueva contraseña", 4)
 
         btn_cambiar_pass = ctk.CTkButton(card, text="Actualizar Contraseña", height=35, fg_color="#4A4A4D", hover_color="#3A3A3D", command=self.cambiar_password)
         btn_cambiar_pass.grid(row=5, column=0, pady=(5, 20), padx=20, sticky="ew")
@@ -142,8 +182,7 @@ class ConfiguracionFrame(ctk.CTkFrame):
             ctk.CTkLabel(card, text="Alta de Operador / Vendedor", font=ctk.CTkFont(size=14, weight="bold")).grid(row=6, column=0, pady=(10, 5), padx=20, sticky="w")
             self.txt_nuevo_user = ctk.CTkEntry(card, placeholder_text="Nuevo nombre de usuario", height=35)
             self.txt_nuevo_user.grid(row=7, column=0, pady=5, padx=20, sticky="ew")
-            self.txt_nuevo_pass = ctk.CTkEntry(card, placeholder_text="Contraseña provisoria", show="*", height=35)
-            self.txt_nuevo_pass.grid(row=8, column=0, pady=5, padx=20, sticky="ew")
+            self.txt_nuevo_pass = self.crear_campo_pass_con_ojo(card, "Contraseña provisoria", 8)
 
             btn_crear_op = ctk.CTkButton(card, text="+ Registrar Nuevo Operador", height=35, fg_color="#2E7D32", hover_color="#256428", command=self.crear_operador)
             btn_crear_op.grid(row=9, column=0, pady=(5, 20), padx=20, sticky="ew")

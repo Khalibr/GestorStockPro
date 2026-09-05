@@ -1,8 +1,7 @@
+import os
 import customtkinter as ctk
+from PIL import Image, ImageOps
 from models.database import validar_credenciales
-
-ctk.set_appearance_mode("System")
-ctk.set_default_color_theme("blue")
 
 class LoginView(ctk.CTk):
     def __init__(self):
@@ -17,17 +16,37 @@ class LoginView(ctk.CTk):
         self.geometry(f"{ancho}x{alto}+{pos_x}+{pos_y}")
         self.resizable(False, False)
 
-        # Paleta pastel
-        self.bg_cremita = "#F9F6F0"
+        # Paleta dinámica (Modo Claro, Modo Oscuro)
+        self.color_bg = ("#F9F6F0", "#1C1C1E")
         self.color_primario = "#9B7EBD"
         self.color_primario_hover = "#8668A6"
-        self.color_texto = "#333333"
+        self.color_texto = ("#333333", "#EBEBF5")
+        self.color_subtexto = ("#7C7C7C", "#8E8E93")
+        self.color_hover_ojo = ("#EDE8F5", "#2C2C2E")
         self.color_error = "#D9534F"
 
-        self.configure(fg_color=self.bg_cremita)
+        self.configure(fg_color=self.color_bg)
 
+        self.cargar_iconos_pass()
         self.crear_componentes()
         self.vincular_eventos()
+
+    def cargar_iconos_pass(self):
+        ruta_ojo = "assets/icons/eye.png"
+        ruta_ojo_closed = "assets/icons/eye-closed.png"
+
+        def procesar(ruta):
+            if not os.path.exists(ruta):
+                return None
+            img_negro = Image.open(ruta).convert("RGBA")
+            r, g, b, a = img_negro.split()
+            inverted = ImageOps.invert(Image.merge("RGB", (r, g, b)))
+            r2, g2, b2 = inverted.split()
+            img_blanco = Image.merge("RGBA", (r2, g2, b2, a))
+            return ctk.CTkImage(light_image=img_negro, dark_image=img_blanco, size=(18, 18))
+
+        self.icono_ojo = procesar(ruta_ojo)
+        self.icono_ojo_closed = procesar(ruta_ojo_closed)
 
     def crear_componentes(self):
         self.lbl_titulo = ctk.CTkLabel(
@@ -42,7 +61,7 @@ class LoginView(ctk.CTk):
             self, 
             text="Inicia sesión para continuar", 
             font=ctk.CTkFont(family="Helvetica", size=13),
-            text_color="#7C7C7C"
+            text_color=self.color_subtexto
         )
         self.lbl_sub.pack(pady=(0, 15))
 
@@ -63,15 +82,32 @@ class LoginView(ctk.CTk):
         )
         self.entry_usuario.pack(pady=8)
 
+        # Contenedor Contraseña + Botón Ver/Ocultar
+        frame_pass = ctk.CTkFrame(self, fg_color="transparent", width=280)
+        frame_pass.pack(pady=8)
+
         self.entry_pass = ctk.CTkEntry(
-            self, 
+            frame_pass, 
             placeholder_text="Contraseña", 
-            width=280, 
+            width=235, 
             height=40,
             corner_radius=8,
             show="*"
         )
-        self.entry_pass.pack(pady=8)
+        self.entry_pass.pack(side="left", padx=(0, 5))
+
+        self.btn_ojo_login = ctk.CTkButton(
+            frame_pass,
+            text="" if self.icono_ojo_closed else "👁",
+            image=self.icono_ojo_closed,
+            width=40,
+            height=40,
+            corner_radius=8,
+            fg_color="transparent",
+            hover_color=self.color_hover_ojo,
+            command=self.toggle_pass_login
+        )
+        self.btn_ojo_login.pack(side="left")
 
         self.btn_ingresar = ctk.CTkButton(
             self, 
@@ -90,7 +126,7 @@ class LoginView(ctk.CTk):
             text="¿Olvidaste tu clave o no tienes cuenta?",
             font=ctk.CTkFont(family="Helvetica", size=11, underline=True),
             fg_color="transparent",
-            text_color="#6A6A6A",
+            text_color=self.color_subtexto,
             hover=False,
             command=self.accion_ayuda_cuenta
         )
@@ -100,9 +136,23 @@ class LoginView(ctk.CTk):
             self, 
             text="Dev Khalibr - v1.0", 
             font=ctk.CTkFont(family="Helvetica", size=11),
-            text_color="#A0A0A0"
+            text_color=self.color_subtexto
         )
         self.lbl_footer.pack(side="bottom", pady=15)
+
+    def toggle_pass_login(self):
+        if self.entry_pass.cget("show") == "*":
+            self.entry_pass.configure(show="")
+            self.btn_ojo_login.configure(
+                image=self.icono_ojo,
+                text="" if self.icono_ojo else "🙈"
+            )
+        else:
+            self.entry_pass.configure(show="*")
+            self.btn_ojo_login.configure(
+                image=self.icono_ojo_closed,
+                text="" if self.icono_ojo_closed else "👁"
+            )
 
     def vincular_eventos(self):
         self.bind("<Return>", lambda event: self.intentar_login())
