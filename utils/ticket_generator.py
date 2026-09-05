@@ -5,14 +5,15 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from models.database import obtener_config_comercio
+from utils.rutas import ruta_carpeta_comprobantes
 
 def generar_ticket_pdf(id_operacion: int, items_carrito: list, total: float, usuario: str) -> str:
     """
     Genera un comprobante en formato ticket térmico (80mm de ancho).
     """
-    os.makedirs("comprobantes", exist_ok=True)
+    carpeta_dest = ruta_carpeta_comprobantes()
     fecha_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    nombre_archivo = f"comprobantes/Ticket_{id_operacion}_{fecha_str}.pdf"
+    nombre_archivo = os.path.join(carpeta_dest, f"Ticket_{id_operacion}_{fecha_str}.pdf")
 
     # Dimensiones estándar POS: 80 mm de ancho
     # Altura dinámica base: 130 mm + 10 mm extra por cada producto agregado

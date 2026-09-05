@@ -3,6 +3,10 @@ import customtkinter as ctk
 from PIL import Image, ImageOps
 from models.database import validar_credenciales
 from tkinter import messagebox
+from utils.rutas import ruta_recurso
+# ...
+ruta_ojo = ruta_recurso("assets/icons/eye.png")
+ruta_ojo_closed = ruta_recurso("assets/icons/eye-closed.png")
 
 class LoginView(ctk.CTk):
     def __init__(self):

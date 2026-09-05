@@ -3,6 +3,10 @@ import os
 import customtkinter as ctk
 from PIL import Image, ImageOps
 from tkinter import messagebox
+from utils.rutas import ruta_recurso
+# ...
+ruta_ojo = ruta_recurso("assets/icons/eye.png")
+ruta_ojo_off = ruta_recurso("assets/icons/eye-closed.png")
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from models.database import (

@@ -11,6 +11,16 @@ from views.carga_stock_view import CargaStockFrame
 from views.historial_view import HistorialFrame
 from views.ventas_view import VentasFrame
 from views.configuracion_view import ConfiguracionFrame
+from utils.rutas import ruta_recurso
+# ...
+iconos_map = {
+    "box": ruta_recurso("assets/icons/treasure-chest.png"),
+    "chart": ruta_recurso("assets/icons/chart-bar-columns.png"),
+    "dollar": ruta_recurso("assets/icons/dollar.png"),
+    "settings": ruta_recurso("assets/icons/spanner.png"),
+    "theme": ruta_recurso("assets/icons/brightness-half.png"),
+    "history": ruta_recurso("assets/icons/history.png")
+}
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")

@@ -234,8 +234,6 @@ def procesar_venta(items_carrito: list, usuario: str) -> tuple[bool, str, int]:
     Procesa una venta compuesta por múltiples productos.
     items_carrito es una lista de diccionarios:
     [{'id': int, 'nombre': str, 'cantidad': int, 'precio': float, 'subtotal': float}]
-
-    Retorna: (exito: bool, mensaje: str, id_venta: int)
     """
     if not items_carrito:
         return False, "El carrito está vacío.", 0
@@ -244,7 +242,6 @@ def procesar_venta(items_carrito: list, usuario: str) -> tuple[bool, str, int]:
     cursor = conexion.cursor()
 
     try:
-        # Iniciar transacción explícita
         cursor.execute("BEGIN TRANSACTION")
 
         # 1. Validar existencias de todos los items
@@ -262,7 +259,8 @@ def procesar_venta(items_carrito: list, usuario: str) -> tuple[bool, str, int]:
                 conexion.close()
                 return False, f"Stock insuficiente para '{nombre}'. Disponible: {stock_actual}", 0
 
-    # 2. Descontar stock y registrar movimiento de auditoría por cada item
+        # 2. Descontar stock y registrar movimiento por cada item
+        id_operacion = 0
         for item in items_carrito:
             cursor.execute(
                 "UPDATE productos SET stock = stock - ? WHERE id = ?",
@@ -272,12 +270,12 @@ def procesar_venta(items_carrito: list, usuario: str) -> tuple[bool, str, int]:
                 "INSERT INTO movimientos (tipo, producto_id, cantidad, usuario) VALUES (?, ?, ?, ?)",
                 ("VENTA", item['id'], item['cantidad'], usuario)
             )
-
-            conexion.commit()
-            # Usamos el id del último movimiento como número de operación de referencia
             id_operacion = cursor.lastrowid
-            conexion.close()
-            return True, "Venta completada exitosamente.", id_operacion
+
+        # El commit va FUERA del bucle, al terminar todos los items
+        conexion.commit()
+        conexion.close()
+        return True, "Venta completada exitosamente.", id_operacion
 
     except Exception as e:
         conexion.rollback()
