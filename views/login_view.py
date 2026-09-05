@@ -9,6 +9,12 @@ class LoginView(ctk.CTk):
     def __init__(self):
         super().__init__()
 
+        # Ícono de la ventana
+        ruta_ico = ruta_recurso(os.path.join("assets", "icons", "app.ico"))
+        if os.path.exists(ruta_ico):
+            self.iconbitmap(ruta_ico)
+        # ...
+        
         self.usuario_autenticado = None
         self.title("GestorStockPro - Iniciar Sesión")
         ancho, alto = 400, 520
