@@ -1,7 +1,17 @@
+import os
+import sys
 import sqlite3
 import hashlib
 
-DB_NAME = "stock.db"
+# Obtiene la ruta absoluta del directorio base (sea en desarrollo o empaquetado)
+if getattr(sys, 'frozen', False):
+    # Si corre como ejecutable compilado con PyInstaller (.exe)
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    # Si corre en modo script de desarrollo (apunta a la raíz del proyecto)
+    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+DB_NAME = os.path.join(BASE_DIR, "stock.db")
 
 def conectar():
     """Establece y retorna una conexión a la base de datos local SQLite."""
