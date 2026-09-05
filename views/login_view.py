@@ -1,9 +1,4 @@
-import sys
-import os
 import customtkinter as ctk
-
-# Ruta al modelo
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from models.database import validar_credenciales
 
 ctk.set_appearance_mode("System")
@@ -51,7 +46,6 @@ class LoginView(ctk.CTk):
         )
         self.lbl_sub.pack(pady=(0, 15))
 
-        # Etiqueta para avisos y errores
         self.lbl_mensaje = ctk.CTkLabel(
             self,
             text="",
@@ -117,9 +111,6 @@ class LoginView(ctk.CTk):
         usuario = self.entry_usuario.get().strip()
         password = self.entry_pass.get().strip()
 
-        print(f"Debug -> Usuario: '{usuario}' | Password: '{password}'")
-
-        # 1. Campos obligatorios
         if not usuario or not password:
             self.lbl_mensaje.configure(
                 text="Por favor, completa todos los campos.",
@@ -127,25 +118,19 @@ class LoginView(ctk.CTk):
             )
             return
 
-        # 2. Validación en base de datos
         if validar_credenciales(usuario, password):
             self.lbl_mensaje.configure(
                 text="¡Acceso concedido!", 
                 text_color="#2E7D32"
             )
             self.usuario_autenticado = usuario
-            self.quit()      # Detiene el bucle principal de inmediato
-            self.destroy()   # Destruye la ventana de login por completo
+            self.quit()
+            self.destroy()
         else:
             self.lbl_mensaje.configure(
                 text="Usuario o contraseña incorrectos.", 
                 text_color=self.color_error
             )
-
-    def abrir_dashboard(self, usuario):
-        self.destroy()
-        app_principal = MainView(usuario_activo=usuario)
-        app_principal.mainloop()
 
     def accion_ayuda_cuenta(self):
         self.lbl_mensaje.configure(

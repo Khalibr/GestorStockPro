@@ -101,14 +101,14 @@ class ProductoModal(ctk.CTkToplevel):
         precio_str = self.entry_precio.get().strip()
 
         if not (nombre and cat and stock_str and precio_str):
-            self.lbl_error.configure(text="Todos los campos son obligatorios.")
+            messagebox.showwarning("Atención", "Todos los campos son obligatorios.")
             return
 
         try:
             stock = int(stock_str)
             precio = float(precio_str)
         except ValueError:
-            self.lbl_error.configure(text="Stock debe ser entero y Precio un número.")
+            messagebox.showerror("Error", "Stock debe ser un número entero y Precio un valor numérico.")
             return
 
         if self.producto_datos:
