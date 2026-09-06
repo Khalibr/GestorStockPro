@@ -63,18 +63,16 @@ class HistorialFrame(ctk.CTkFrame):
         self.tree.heading("total", text="Total")
         self.tree.heading("usuario", text="Operador")
 
-        self.tree.column("id", width=45, minwidth=40, anchor="center")
-        self.tree.column("fecha", width=140, minwidth=130, anchor="center")
-        self.tree.column("ticket", width=110, minwidth=100, anchor="center")
-        self.tree.column("tipo", width=80, minwidth=70, anchor="center")
-        self.tree.column("producto", width=200, minwidth=160, anchor="w")
-        self.tree.column("cantidad", width=60, minwidth=50, anchor="center")
-        self.tree.column("precio", width=85, minwidth=75, anchor="e")
-        self.tree.column("total", width=95, minwidth=85, anchor="e")
-        self.tree.column("usuario", width=100, minwidth=90, anchor="center")
-
-        # Vincular doble clic para abrir comprobante
-        self.tree.bind("<Double-1>", self.abrir_comprobante_ticket)
+        # Anchos compactos: ocupan ~770px en total para entrar directos en pantalla sin scroll
+        self.tree.column("id", width=35, minwidth=30, anchor="center")
+        self.tree.column("fecha", width=125, minwidth=115, anchor="center")
+        self.tree.column("ticket", width=95, minwidth=90, anchor="center")
+        self.tree.column("tipo", width=65, minwidth=60, anchor="center")
+        self.tree.column("producto", width=155, minwidth=120, anchor="w")
+        self.tree.column("cantidad", width=45, minwidth=40, anchor="center")
+        self.tree.column("precio", width=75, minwidth=65, anchor="e")
+        self.tree.column("total", width=85, minwidth=75, anchor="e")
+        self.tree.column("usuario", width=75, minwidth=65, anchor="center")
 
         # Scrollbar Vertical (idéntico al actual)
         self.scrollbar_y = ctk.CTkScrollbar(self.tabla_frame, orientation="vertical", command=self.tree.yview)
@@ -93,6 +91,10 @@ class HistorialFrame(ctk.CTkFrame):
         self.scrollbar_y.grid(row=0, column=1, sticky="ns", pady=10, padx=(0, 8))
         self.scrollbar_x.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 8))
 
+        # Eventos: doble clic para PDF y soporte de scroll con rueda
+        self.tree.bind("<Double-1>", self.abrir_comprobante_ticket)
+        self.tree.bind("<Shift-MouseWheel>", self.scrollear_horizontal_rueda)
+        
         self.actualizar_estilos()
 
     def actualizar_estilos(self):
@@ -191,3 +193,8 @@ class HistorialFrame(ctk.CTkFrame):
                 subprocess.call(["xdg-open", archivo_encontrado])
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo abrir el comprobante: {e}")
+
+    def scrollear_horizontal_rueda(self, event):
+        """Permite mover la vista horizontalmente usando Shift + Rueda del ratón."""
+        if event.delta:
+            self.tree.xview_scroll(int(-1 * (event.delta / 120)), "units")

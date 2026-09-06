@@ -3,6 +3,7 @@ import os
 import subprocess
 import customtkinter as ctk
 from tkinter import ttk, messagebox
+from decimal import Decimal, ROUND_HALF_UP
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from models.database import obtener_productos, procesar_venta
@@ -202,13 +203,15 @@ class VentasFrame(ctk.CTkFrame):
             messagebox.showwarning("Sin existencias", f"Stock insuficiente. Disponible: {p['stock']} (Ya añadiste {ya_en_carrito}).")
             return
 
-        subtotal = cantidad * p["precio"]
+        p_unit = Decimal(str(p["precio"]))
+        subtotal = (Decimal(cantidad) * p_unit).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
         self.carrito.append({
             "id": p["id"],
             "nombre": p["nombre"],
             "cantidad": cantidad,
-            "precio": p["precio"],
-            "subtotal": subtotal
+            "precio": float(p_unit),
+            "subtotal": float(subtotal)
         })
 
         self.entry_cantidad.delete(0, "end")
@@ -227,24 +230,26 @@ class VentasFrame(ctk.CTkFrame):
         for item in self.tree_carrito.get_children():
             self.tree_carrito.delete(item)
 
-        total = 0.0
+        total_dec = Decimal("0.00")
         for item in self.carrito:
-            total += item["subtotal"]
+            subtotal_dec = Decimal(str(item["subtotal"]))
+            total_dec += subtotal_dec
             self.tree_carrito.insert("", "end", values=(
                 item["cantidad"],
                 item["nombre"],
                 f"${item['precio']:,.2f}",
-                f"${item['subtotal']:,.2f}"
+                f"${subtotal_dec:,.2f}"
             ))
 
-        self.lbl_total_general.configure(text=f"TOTAL: ${total:,.2f}")
+        self.lbl_total_general.configure(text=f"TOTAL: ${total_dec:,.2f}")
 
     def finalizar_venta(self):
         if not self.carrito:
             messagebox.showwarning("Carrito vacío", "Añade al menos un producto para procesar la venta.")
             return
 
-        total = sum(i["subtotal"] for i in self.carrito)
+        total_dec = sum((Decimal(str(i["subtotal"])) for i in self.carrito), Decimal("0.00"))
+        total = float(total_dec)
 
         # 1. Impacto transaccional en Base de Datos (recibe ticket_id alfanumérico)
         exito, msj, ticket_id = procesar_venta(self.carrito, self.usuario_activo)

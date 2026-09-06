@@ -142,7 +142,7 @@ class LoginView(ctk.CTk):
 
         self.lbl_footer = ctk.CTkLabel(
             self, 
-            text="Dev Khalibr - v1.0", 
+            text="Dev Khalibr - v1.1.0", 
             font=ctk.CTkFont(family="Helvetica", size=11),
             text_color=self.color_subtexto
         )

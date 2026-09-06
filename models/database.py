@@ -4,6 +4,7 @@ import sqlite3
 import hashlib
 import uuid
 from decimal import Decimal, ROUND_HALF_UP
+from contextlib import contextmanager
 
 # Obtiene la ruta absoluta del directorio base (sea en desarrollo o empaquetado)
 if getattr(sys, 'frozen', False):
@@ -18,6 +19,19 @@ DB_NAME = os.path.join(BASE_DIR, "stock.db")
 def conectar():
     """Establece y retorna una conexión a la base de datos local SQLite."""
     return sqlite3.connect(DB_NAME)
+
+@contextmanager
+def obtener_conexion():
+    """Generador de contexto seguro: maneja commit, rollback y cierre garantizado."""
+    conn = conectar()
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 def hashear_password(password: str) -> str:
     """Genera un hash SHA-256 para no guardar contraseñas en texto plano."""
@@ -127,12 +141,10 @@ def validar_credenciales(usuario: str, password_plana: str) -> bool:
 
 def obtener_productos():
     """Recupera todos los registros de la tabla productos."""
-    conexion = conectar()
-    cursor = conexion.cursor()
-    cursor.execute("SELECT id, nombre, categoria, stock, precio FROM productos ORDER BY id DESC")
-    productos = cursor.fetchall()
-    conexion.close()
-    return productos
+    with obtener_conexion() as conexion:
+        cursor = conexion.cursor()
+        cursor.execute("SELECT id, nombre, categoria, stock, precio FROM productos ORDER BY id DESC")
+        return cursor.fetchall()
 
 def buscar_productos(termino: str):
     """Filtra productos por nombre o categoría."""
@@ -189,11 +201,9 @@ def actualizar_producto(id_prod: int, nombre: str, categoria: str, stock: int, p
 
 def eliminar_producto(producto_id):
     try:
-        conexion = conectar()
-        cursor = conexion.cursor()
-        cursor.execute("DELETE FROM productos WHERE id = ?", (producto_id,))
-        conexion.commit()
-        conexion.close()
+        with obtener_conexion() as conexion:
+            cursor = conexion.cursor()
+            cursor.execute("DELETE FROM productos WHERE id = ?", (producto_id,))
         return True, "Producto eliminado correctamente."
     except Exception as e:
         return False, f"Error al eliminar: {e}"
@@ -230,34 +240,29 @@ def reponer_stock(id_prod: int, cantidad_a_sumar: int, usuario: str = "admin") -
         return False
 
 def registrar_movimiento(tipo: str, id_prod: int, cantidad: int, usuario: str, nombre_prod: str = None, precio_unitario: float = 0.0, ticket_id: str = None) -> bool:
-    """Registra una entrada o salida en el historial con snapshot y valores monetarios."""
     try:
-        conexion = conectar()
-        cursor = conexion.cursor()
+        with obtener_conexion() as conexion:
+            cursor = conexion.cursor()
+            if not nombre_prod:
+                cursor.execute("SELECT nombre, precio FROM productos WHERE id = ?", (id_prod,))
+                res = cursor.fetchone()
+                if res:
+                    nombre_prod = res[0]
+                    if precio_unitario == 0.0:
+                        precio_unitario = res[1]
+                else:
+                    nombre_prod = "Desconocido"
 
-        if not nombre_prod:
-            cursor.execute("SELECT nombre, precio FROM productos WHERE id = ?", (id_prod,))
-            res = cursor.fetchone()
-            if res:
-                nombre_prod = res[0]
-                if precio_unitario == 0.0:
-                    precio_unitario = res[1]
-            else:
-                nombre_prod = "Desconocido"
+            p_unit = Decimal(str(precio_unitario))
+            tot = (p_unit * Decimal(str(cantidad))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-        # Cálculo preciso con Decimal
-        p_unit = Decimal(str(precio_unitario))
-        tot = (p_unit * Decimal(str(cantidad))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
-        cursor.execute(
-            """
-            INSERT INTO movimientos (tipo, producto_id, producto_nombre, cantidad, precio_unitario, total, ticket_id, usuario)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (tipo, id_prod, nombre_prod, cantidad, float(p_unit), float(tot), ticket_id, usuario)
-        )
-        conexion.commit()
-        conexion.close()
+            cursor.execute(
+                """
+                INSERT INTO movimientos (tipo, producto_id, producto_nombre, cantidad, precio_unitario, total, ticket_id, usuario)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (tipo, id_prod, nombre_prod, cantidad, float(p_unit), float(tot), ticket_id, usuario)
+            )
         return True
     except Exception as e:
         print(f"Error al registrar movimiento: {e}")
