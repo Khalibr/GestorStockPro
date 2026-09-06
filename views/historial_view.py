@@ -1,7 +1,8 @@
-import customtkinter as ctk
-from tkinter import ttk
-import sys
 import os
+import sys
+import subprocess
+import customtkinter as ctk
+from tkinter import ttk, messagebox
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from models.database import obtener_movimientos
@@ -47,28 +48,50 @@ class HistorialFrame(ctk.CTkFrame):
         self.tabla_frame.grid_rowconfigure(0, weight=1)
         self.tabla_frame.grid_columnconfigure(0, weight=1)
 
-        columnas = ("id", "fecha", "tipo", "producto", "cantidad", "usuario")
+
+        # 9 columnas de auditoría contable
+        columnas = ("id", "fecha", "ticket", "tipo", "producto", "cantidad", "precio", "total", "usuario")
         self.tree = ttk.Treeview(self.tabla_frame, columns=columnas, show="headings", selectmode="browse")
 
         self.tree.heading("id", text="ID")
         self.tree.heading("fecha", text="Fecha / Hora")
+        self.tree.heading("ticket", text="N° Ticket")
         self.tree.heading("tipo", text="Tipo")
         self.tree.heading("producto", text="Producto")
-        self.tree.heading("cantidad", text="Cantidad")
+        self.tree.heading("cantidad", text="Cant.")
+        self.tree.heading("precio", text="P. Unit.")
+        self.tree.heading("total", text="Total")
         self.tree.heading("usuario", text="Operador")
 
-        self.tree.column("id", width=50, anchor="center")
-        self.tree.column("fecha", width=150, anchor="center")
-        self.tree.column("tipo", width=100, anchor="center")
-        self.tree.column("producto", width=220, anchor="w")
-        self.tree.column("cantidad", width=80, anchor="center")
-        self.tree.column("usuario", width=100, anchor="center")
+        self.tree.column("id", width=45, minwidth=40, anchor="center")
+        self.tree.column("fecha", width=140, minwidth=130, anchor="center")
+        self.tree.column("ticket", width=110, minwidth=100, anchor="center")
+        self.tree.column("tipo", width=80, minwidth=70, anchor="center")
+        self.tree.column("producto", width=200, minwidth=160, anchor="w")
+        self.tree.column("cantidad", width=60, minwidth=50, anchor="center")
+        self.tree.column("precio", width=85, minwidth=75, anchor="e")
+        self.tree.column("total", width=95, minwidth=85, anchor="e")
+        self.tree.column("usuario", width=100, minwidth=90, anchor="center")
 
-        self.scrollbar = ctk.CTkScrollbar(self.tabla_frame, orientation="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=self.scrollbar.set)
+        # Vincular doble clic para abrir comprobante
+        self.tree.bind("<Double-1>", self.abrir_comprobante_ticket)
 
-        self.tree.grid(row=0, column=0, sticky="nsew", padx=(10, 5), pady=10)
-        self.scrollbar.grid(row=0, column=1, sticky="ns", pady=10, padx=(0, 8))
+        # Scrollbar Vertical (idéntico al actual)
+        self.scrollbar_y = ctk.CTkScrollbar(self.tabla_frame, orientation="vertical", command=self.tree.yview)
+        
+        # Scrollbar Horizontal (mantiene el mismo estilo y curvatura)
+        self.scrollbar_x = ctk.CTkScrollbar(self.tabla_frame, orientation="horizontal", command=self.tree.xview)
+
+        # Vincular ambos scrolls al Treeview
+        self.tree.configure(
+            yscrollcommand=self.scrollbar_y.set,
+            xscrollcommand=self.scrollbar_x.set
+        )
+
+        # Ubicación en grid
+        self.tree.grid(row=0, column=0, sticky="nsew", padx=(10, 0), pady=(10, 0))
+        self.scrollbar_y.grid(row=0, column=1, sticky="ns", pady=10, padx=(0, 8))
+        self.scrollbar_x.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 8))
 
         self.actualizar_estilos()
 
@@ -104,5 +127,67 @@ class HistorialFrame(ctk.CTkFrame):
             self.tree.delete(item)
 
         for m in obtener_movimientos():
-            # m: (id, fecha, tipo, nombre_prod, cantidad, usuario)
-            self.tree.insert("", "end", values=m)
+            # m[0]: id, m[1]: fecha, m[2]: producto, m[3]: tipo, m[4]: cantidad
+            # m[5]: precio_unitario, m[6]: total, m[7]: ticket_id, m[8]: usuario
+            self.tree.insert("", "end", values=(
+                m[0],
+                m[1],
+                m[7],
+                m[3],
+                m[2],
+                m[4],
+                f"${m[5]:,.2f}",
+                f"${m[6]:,.2f}",
+                m[8]
+            ))
+
+    def abrir_comprobante_ticket(self, event):
+        seleccion = self.tree.selection()
+        if not seleccion:
+            return
+
+        item = self.tree.item(seleccion[0])
+        valores = item.get("values", [])
+        if not valores:
+            return
+
+        # Columna ticket: valores[2]
+        ticket_id = str(valores[2]).strip()
+
+        if not ticket_id or ticket_id == "-":
+            messagebox.showinfo("Sin Comprobante", "Este movimiento no tiene un comprobante de venta asociado.")
+            return
+
+        # Directorio base
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+        carpeta_comprobantes = os.path.join(base_dir, "comprobantes")
+        if not os.path.exists(carpeta_comprobantes):
+            messagebox.showwarning("Aviso", "La carpeta 'comprobantes' aún no existe.")
+            return
+
+        # Buscar cualquier PDF que contenga el identificador en su nombre
+        archivo_encontrado = None
+        for archivo in os.listdir(carpeta_comprobantes):
+            if archivo.lower().endswith(".pdf") and ticket_id.lower() in archivo.lower():
+                archivo_encontrado = os.path.join(carpeta_comprobantes, archivo)
+                break
+
+        if not archivo_encontrado:
+            messagebox.showwarning(
+                "Archivo no encontrado", 
+                f"No se encontró un comprobante que contenga el ID:\n{ticket_id}"
+            )
+            return
+
+        # Abrir archivo
+        try:
+            if sys.platform == "win32":
+                os.startfile(archivo_encontrado)
+            else:
+                subprocess.call(["xdg-open", archivo_encontrado])
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo abrir el comprobante: {e}")

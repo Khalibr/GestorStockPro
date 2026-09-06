@@ -2,6 +2,8 @@ import os
 import sys
 import sqlite3
 import hashlib
+import uuid
+from decimal import Decimal, ROUND_HALF_UP
 
 # Obtiene la ruta absoluta del directorio base (sea en desarrollo o empaquetado)
 if getattr(sys, 'frozen', False):
@@ -55,6 +57,9 @@ def inicializar_base_de_datos():
             producto_id INTEGER NOT NULL,
             producto_nombre TEXT,
             cantidad INTEGER NOT NULL,
+            precio_unitario REAL DEFAULT 0.0,
+            total REAL DEFAULT 0.0,
+            ticket_id TEXT,
             usuario TEXT NOT NULL,
             FOREIGN KEY (producto_id) REFERENCES productos (id)
         )
@@ -63,8 +68,15 @@ def inicializar_base_de_datos():
     # Migración automática segura para bases de datos existentes
     cursor.execute("PRAGMA table_info(movimientos)")
     columnas = [col[1] for col in cursor.fetchall()]
+    
     if "producto_nombre" not in columnas:
         cursor.execute("ALTER TABLE movimientos ADD COLUMN producto_nombre TEXT")
+    if "precio_unitario" not in columnas:
+        cursor.execute("ALTER TABLE movimientos ADD COLUMN precio_unitario REAL DEFAULT 0.0")
+    if "total" not in columnas:
+        cursor.execute("ALTER TABLE movimientos ADD COLUMN total REAL DEFAULT 0.0")
+    if "ticket_id" not in columnas:
+        cursor.execute("ALTER TABLE movimientos ADD COLUMN ticket_id TEXT")
 
     # Tabla de configuración del comercio
     cursor.execute("""
@@ -192,10 +204,10 @@ def reponer_stock(id_prod: int, cantidad_a_sumar: int, usuario: str = "admin") -
         conexion = conectar()
         cursor = conexion.cursor()
         
-        # Obtenemos el nombre para sellar la auditoría
-        cursor.execute("SELECT nombre FROM productos WHERE id = ?", (id_prod,))
+        cursor.execute("SELECT nombre, precio FROM productos WHERE id = ?", (id_prod,))
         res = cursor.fetchone()
         nombre_prod = res[0] if res else "Desconocido"
+        precio = res[1] if res else 0.0
 
         cursor.execute(
             "UPDATE productos SET stock = stock + ? WHERE id = ?",
@@ -203,26 +215,46 @@ def reponer_stock(id_prod: int, cantidad_a_sumar: int, usuario: str = "admin") -
         )
         conexion.commit()
         conexion.close()
-        registrar_movimiento("INGRESO", id_prod, cantidad_a_sumar, usuario, nombre_prod)
+        
+        registrar_movimiento(
+            tipo="INGRESO", 
+            id_prod=id_prod, 
+            cantidad=cantidad_a_sumar, 
+            usuario=usuario, 
+            nombre_prod=nombre_prod, 
+            precio_unitario=precio
+        )
         return True
     except Exception as e:
         print(f"Error al reponer stock: {e}")
         return False
 
-def registrar_movimiento(tipo: str, id_prod: int, cantidad: int, usuario: str, nombre_prod: str = None) -> bool:
-    """Registra una entrada o salida en el historial con snapshot del nombre."""
+def registrar_movimiento(tipo: str, id_prod: int, cantidad: int, usuario: str, nombre_prod: str = None, precio_unitario: float = 0.0, ticket_id: str = None) -> bool:
+    """Registra una entrada o salida en el historial con snapshot y valores monetarios."""
     try:
         conexion = conectar()
         cursor = conexion.cursor()
 
         if not nombre_prod:
-            cursor.execute("SELECT nombre FROM productos WHERE id = ?", (id_prod,))
+            cursor.execute("SELECT nombre, precio FROM productos WHERE id = ?", (id_prod,))
             res = cursor.fetchone()
-            nombre_prod = res[0] if res else "Desconocido"
+            if res:
+                nombre_prod = res[0]
+                if precio_unitario == 0.0:
+                    precio_unitario = res[1]
+            else:
+                nombre_prod = "Desconocido"
+
+        # Cálculo preciso con Decimal
+        p_unit = Decimal(str(precio_unitario))
+        tot = (p_unit * Decimal(str(cantidad))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
         cursor.execute(
-            "INSERT INTO movimientos (tipo, producto_id, producto_nombre, cantidad, usuario) VALUES (?, ?, ?, ?, ?)",
-            (tipo, id_prod, nombre_prod, cantidad, usuario)
+            """
+            INSERT INTO movimientos (tipo, producto_id, producto_nombre, cantidad, precio_unitario, total, ticket_id, usuario)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (tipo, id_prod, nombre_prod, cantidad, float(p_unit), float(tot), ticket_id, usuario)
         )
         conexion.commit()
         conexion.close()
@@ -242,6 +274,9 @@ def obtener_movimientos(filtro=None):
             COALESCE(m.producto_nombre, p.nombre, '[Producto Eliminado]') AS producto,
             m.tipo,
             m.cantidad,
+            COALESCE(m.precio_unitario, 0.0),
+            COALESCE(m.total, 0.0),
+            COALESCE(m.ticket_id, '-'),
             m.usuario
         FROM movimientos m
         LEFT JOIN productos p ON m.producto_id = p.id
@@ -252,14 +287,13 @@ def obtener_movimientos(filtro=None):
     conexion.close()
     return filas
 
-def procesar_venta(items_carrito: list, usuario: str) -> tuple[bool, str, int]:
+def procesar_venta(items_carrito: list, usuario: str) -> tuple[bool, str, str]:
     """
     Procesa una venta compuesta por múltiples productos.
-    items_carrito es una lista de diccionarios:
-    [{'id': int, 'nombre': str, 'cantidad': int, 'precio': float, 'subtotal': float}]
+    Retorna (éxito, mensaje, ticket_id).
     """
     if not items_carrito:
-        return False, "El carrito está vacío.", 0
+        return False, "El carrito está vacío.", ""
 
     conexion = conectar()
     cursor = conexion.cursor()
@@ -267,47 +301,51 @@ def procesar_venta(items_carrito: list, usuario: str) -> tuple[bool, str, int]:
     try:
         cursor.execute("BEGIN TRANSACTION")
 
-        # 1. Validar existencias de todos los items
+        # 1. Validar existencias
         for item in items_carrito:
             cursor.execute("SELECT stock, nombre FROM productos WHERE id = ?", (item['id'],))
             resultado = cursor.fetchone()
             if not resultado:
                 conexion.rollback()
                 conexion.close()
-                return False, f"El producto {item['nombre']} ya no existe.", 0
+                return False, f"El producto {item['nombre']} ya no existe.", ""
 
             stock_actual, nombre = resultado
             if stock_actual < item['cantidad']:
                 conexion.rollback()
                 conexion.close()
-                return False, f"Stock insuficiente para '{nombre}'. Disponible: {stock_actual}", 0
+                return False, f"Stock insuficiente para '{nombre}'. Disponible: {stock_actual}", ""
 
-        # 2. Descontar stock y registrar movimiento por cada item
-        id_operacion = 0
+        # 2. Generar Ticket ID único para agrupar la operación contable
+        ticket_id = f"TICK-{uuid.uuid4().hex[:8].upper()}"
+
+        # 3. Descontar existencias y asentar movimientos
         for item in items_carrito:
             cursor.execute(
                 "UPDATE productos SET stock = stock - ? WHERE id = ?",
                 (item['cantidad'], item['id'])
             )
+
+            p_unit = Decimal(str(item['precio']))
+            subtotal = (p_unit * Decimal(str(item['cantidad']))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
             cursor.execute(
                 """
-                INSERT INTO movimientos (tipo, producto_id, producto_nombre, cantidad, usuario) 
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO movimientos (tipo, producto_id, producto_nombre, cantidad, precio_unitario, total, ticket_id, usuario) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                ("VENTA", item['id'], item['nombre'], item['cantidad'], usuario)
+                ("VENTA", item['id'], item['nombre'], item['cantidad'], float(p_unit), float(subtotal), ticket_id, usuario)
             )
-            id_operacion = cursor.lastrowid
 
-        # El commit va FUERA del bucle, al terminar todos los items
         conexion.commit()
         conexion.close()
-        return True, "Venta completada exitosamente.", id_operacion
+        return True, "Venta completada exitosamente.", ticket_id
 
     except Exception as e:
         conexion.rollback()
         conexion.close()
         print(f"Error crítico en venta: {e}")
-        return False, f"Error al procesar la venta: {e}", 0
+        return False, f"Error al procesar la venta: {e}", ""
 
 def obtener_config_comercio() -> dict:
     conexion = conectar()

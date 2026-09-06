@@ -246,12 +246,12 @@ class VentasFrame(ctk.CTkFrame):
 
         total = sum(i["subtotal"] for i in self.carrito)
 
-        # 1. Impacto transaccional en Base de Datos
-        exito, msj, id_operacion = procesar_venta(self.carrito, self.usuario_activo)
+        # 1. Impacto transaccional en Base de Datos (recibe ticket_id alfanumérico)
+        exito, msj, ticket_id = procesar_venta(self.carrito, self.usuario_activo)
 
         if exito:
-            # 2. Generación del ticket térmico en PDF
-            ruta_pdf = generar_ticket_pdf(id_operacion, self.carrito, total, self.usuario_activo)
+            # 2. Generación del ticket térmico en PDF con el ticket_id
+            ruta_pdf = generar_ticket_pdf(ticket_id, self.carrito, total, self.usuario_activo)
 
             # 3. Apertura automática del comprobante
             try:
@@ -262,7 +262,7 @@ class VentasFrame(ctk.CTkFrame):
             except Exception as e:
                 print(f"No se pudo abrir el visor de PDF: {e}")
 
-            messagebox.showinfo("Venta Exitosa", f"{msj}\nComprobante #{id_operacion} generado correctamente.")
+            messagebox.showinfo("Venta Exitosa", f"{msj}\nComprobante: {ticket_id}")
 
             # Limpiar estado
             self.carrito.clear()
