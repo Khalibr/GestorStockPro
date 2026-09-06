@@ -53,11 +53,18 @@ def inicializar_base_de_datos():
             fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             tipo TEXT NOT NULL, -- 'INGRESO' o 'VENTA'
             producto_id INTEGER NOT NULL,
+            producto_nombre TEXT,
             cantidad INTEGER NOT NULL,
             usuario TEXT NOT NULL,
             FOREIGN KEY (producto_id) REFERENCES productos (id)
         )
     """)
+
+    # Migración automática segura para bases de datos existentes
+    cursor.execute("PRAGMA table_info(movimientos)")
+    columnas = [col[1] for col in cursor.fetchall()]
+    if "producto_nombre" not in columnas:
+        cursor.execute("ALTER TABLE movimientos ADD COLUMN producto_nombre TEXT")
 
     # Tabla de configuración del comercio
     cursor.execute("""
@@ -168,44 +175,54 @@ def actualizar_producto(id_prod: int, nombre: str, categoria: str, stock: int, p
         return False
 
 
-def eliminar_producto(id_prod: int) -> bool:
-    """Elimina un producto por su ID."""
+def eliminar_producto(producto_id):
     try:
         conexion = conectar()
         cursor = conexion.cursor()
-        cursor.execute("DELETE FROM productos WHERE id = ?", (id_prod,))
+        cursor.execute("DELETE FROM productos WHERE id = ?", (producto_id,))
         conexion.commit()
         conexion.close()
-        return True
+        return True, "Producto eliminado correctamente."
     except Exception as e:
-        print(f"Error al eliminar: {e}")
-        return False
+        return False, f"Error al eliminar: {e}"
 
 def reponer_stock(id_prod: int, cantidad_a_sumar: int, usuario: str = "admin") -> bool:
     """Incrementa las existencias y audita el movimiento."""
     try:
         conexion = conectar()
         cursor = conexion.cursor()
+        
+        # Obtenemos el nombre para sellar la auditoría
+        cursor.execute("SELECT nombre FROM productos WHERE id = ?", (id_prod,))
+        res = cursor.fetchone()
+        nombre_prod = res[0] if res else "Desconocido"
+
         cursor.execute(
             "UPDATE productos SET stock = stock + ? WHERE id = ?",
             (cantidad_a_sumar, id_prod)
         )
         conexion.commit()
         conexion.close()
-        registrar_movimiento("INGRESO", id_prod, cantidad_a_sumar, usuario)
+        registrar_movimiento("INGRESO", id_prod, cantidad_a_sumar, usuario, nombre_prod)
         return True
     except Exception as e:
         print(f"Error al reponer stock: {e}")
         return False
 
-def registrar_movimiento(tipo: str, id_prod: int, cantidad: int, usuario: str) -> bool:
-    """Registra una entrada o salida en el historial."""
+def registrar_movimiento(tipo: str, id_prod: int, cantidad: int, usuario: str, nombre_prod: str = None) -> bool:
+    """Registra una entrada o salida en el historial con snapshot del nombre."""
     try:
         conexion = conectar()
         cursor = conexion.cursor()
+
+        if not nombre_prod:
+            cursor.execute("SELECT nombre FROM productos WHERE id = ?", (id_prod,))
+            res = cursor.fetchone()
+            nombre_prod = res[0] if res else "Desconocido"
+
         cursor.execute(
-            "INSERT INTO movimientos (tipo, producto_id, cantidad, usuario) VALUES (?, ?, ?, ?)",
-            (tipo, id_prod, cantidad, usuario)
+            "INSERT INTO movimientos (tipo, producto_id, producto_nombre, cantidad, usuario) VALUES (?, ?, ?, ?, ?)",
+            (tipo, id_prod, nombre_prod, cantidad, usuario)
         )
         conexion.commit()
         conexion.close()
@@ -214,20 +231,26 @@ def registrar_movimiento(tipo: str, id_prod: int, cantidad: int, usuario: str) -
         print(f"Error al registrar movimiento: {e}")
         return False
 
-def obtener_movimientos():
-    """Recupera los movimientos cruzados con el nombre del producto."""
+def obtener_movimientos(filtro=None):
     conexion = conectar()
     cursor = conexion.cursor()
+    
     query = """
-        SELECT m.id, m.fecha, m.tipo, p.nombre, m.cantidad, m.usuario
+        SELECT 
+            m.id,
+            m.fecha,
+            COALESCE(m.producto_nombre, p.nombre, '[Producto Eliminado]') AS producto,
+            m.tipo,
+            m.cantidad,
+            m.usuario
         FROM movimientos m
-        JOIN productos p ON m.producto_id = p.id
+        LEFT JOIN productos p ON m.producto_id = p.id
         ORDER BY m.id DESC
     """
     cursor.execute(query)
-    movimientos = cursor.fetchall()
+    filas = cursor.fetchall()
     conexion.close()
-    return movimientos
+    return filas
 
 def procesar_venta(items_carrito: list, usuario: str) -> tuple[bool, str, int]:
     """
@@ -267,8 +290,11 @@ def procesar_venta(items_carrito: list, usuario: str) -> tuple[bool, str, int]:
                 (item['cantidad'], item['id'])
             )
             cursor.execute(
-                "INSERT INTO movimientos (tipo, producto_id, cantidad, usuario) VALUES (?, ?, ?, ?)",
-                ("VENTA", item['id'], item['cantidad'], usuario)
+                """
+                INSERT INTO movimientos (tipo, producto_id, producto_nombre, cantidad, usuario) 
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                ("VENTA", item['id'], item['nombre'], item['cantidad'], usuario)
             )
             id_operacion = cursor.lastrowid
 
